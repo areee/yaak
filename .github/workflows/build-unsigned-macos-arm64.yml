@@ -52,6 +52,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: yaak-macos-arm64-unsigned
+          if-no-files-found: error
           path: |
-            crates-tauri/yaak-app/target/aarch64-apple-darwin/release/bundle/macos/*.app
-            crates-tauri/yaak-app/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            target/aarch64-apple-darwin/release/bundle/macos/*.app/**
+            target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
