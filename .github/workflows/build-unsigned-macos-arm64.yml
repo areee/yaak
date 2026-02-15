@@ -1,0 +1,57 @@
+name: Build unsigned macOS (arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g. v2026.2.1)"
+        required: true
+        default: "v2026.2.1"
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos-arm64:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci
+          cache-on-failure: true
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm ci
+      - run: npm run bootstrap
+        env:
+          YAAK_TARGET_ARCH: "arm64"
+
+      - name: Set version
+        run: npm run replace-version
+        env:
+          YAAK_VERSION: ${{ inputs.version }}
+
+      - name: Build
+        run: npm run app-build -- --target aarch64-apple-darwin --config crates-tauri/yaak-app/tauri.conf.json --bundles app,dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yaak-macos-arm64-unsigned
+          path: |
+            crates-tauri/yaak-app/target/aarch64-apple-darwin/release/bundle/macos/*.app
+            crates-tauri/yaak-app/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
