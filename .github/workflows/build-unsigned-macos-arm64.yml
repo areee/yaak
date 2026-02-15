@@ -49,6 +49,11 @@ jobs:
       - name: Build
         run: npm run app-build -- --target aarch64-apple-darwin --config crates-tauri/yaak-app/tauri.conf.json --bundles app,dmg
 
+      - name: Show bundle outputs
+        run: |
+          ls -la target/aarch64-apple-darwin/release/bundle || true
+          find target/aarch64-apple-darwin/release/bundle -maxdepth 3 -print || true
+
       - uses: actions/upload-artifact@v4
         with:
           name: yaak-macos-arm64-unsigned
