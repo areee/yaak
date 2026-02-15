@@ -8,6 +8,9 @@ on:
         required: true
         default: "v2026.2.1"
 
+permissions:
+  contents: read
+
 jobs:
   build-macos-arm64:
     runs-on: macos-latest
