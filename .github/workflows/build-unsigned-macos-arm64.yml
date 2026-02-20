@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (e.g. v2026.2.1)"
+        description: "Version (e.g. v2026.2.4)"
         required: true
-        default: "v2026.2.1"
+        default: "v2026.2.4"
 
 permissions:
   contents: read
