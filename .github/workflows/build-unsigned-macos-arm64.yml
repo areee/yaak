@@ -57,7 +57,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: yaak-macos-arm64-unsigned
+          name: yaak-macos-arm64-unsigned-${{ inputs.version }}
           if-no-files-found: error
           path: |
             target/aarch64-apple-darwin/release/bundle/macos/*.app
