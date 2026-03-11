@@ -1,9 +1,17 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "yaakcli")]
+#[command(name = "yaak")]
 #[command(about = "Yaak CLI - API client from the command line")]
+#[command(version = crate::version::cli_version())]
+#[command(disable_help_subcommand = true)]
+#[command(after_help = r#"Agent Hints:
+  - Template variable syntax is ${[ my_var ]}, not {{ ... }}
+  - Template function syntax is ${[ namespace.my_func(a='aaa',b='bbb') ]}
+  - View JSONSchema for models before creating or updating (eg. `yaak request schema http`)
+  - Deletion requires confirmation (--yes for non-interactive environments)
+  "#)]
 pub struct Cli {
     /// Use a custom data directory
     #[arg(long, global = true)]
@@ -13,9 +21,17 @@ pub struct Cli {
     #[arg(long, short, global = true)]
     pub environment: Option<String>,
 
-    /// Enable verbose logging
+    /// Cookie jar ID to use when sending requests
+    #[arg(long = "cookie-jar", global = true, value_name = "COOKIE_JAR_ID")]
+    pub cookie_jar: Option<String>,
+
+    /// Enable verbose send output (events and streamed response body)
     #[arg(long, short, global = true)]
     pub verbose: bool,
+
+    /// Enable CLI logging; optionally set level (error|warn|info|debug|trace)
+    #[arg(long, global = true, value_name = "LEVEL", num_args = 0..=1, ignore_case = true)]
+    pub log: Option<Option<LogLevel>>,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -23,8 +39,31 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Send an HTTP request by ID
+    /// Authentication commands
+    Auth(AuthArgs),
+
+    /// Plugin development and publishing commands
+    Plugin(PluginArgs),
+
+    #[command(hide = true)]
+    Build(PluginPathArg),
+
+    #[command(hide = true)]
+    Dev(PluginPathArg),
+
+    /// Backward-compatible alias for `plugin generate`
+    #[command(hide = true)]
+    Generate(GenerateArgs),
+
+    /// Backward-compatible alias for `plugin publish`
+    #[command(hide = true)]
+    Publish(PluginPathArg),
+
+    /// Send a request, folder, or workspace by ID
     Send(SendArgs),
+
+    /// Cookie jar commands
+    CookieJar(CookieJarArgs),
 
     /// Workspace commands
     Workspace(WorkspaceArgs),
@@ -41,11 +80,36 @@ pub enum Commands {
 
 #[derive(Args)]
 pub struct SendArgs {
-    /// Request ID
-    pub request_id: String,
+    /// Request, folder, or workspace ID
+    pub id: String,
+
+    /// Execute requests in parallel
+    #[arg(long)]
+    pub parallel: bool,
+
+    /// Stop on first request failure when sending folders/workspaces
+    #[arg(long, conflicts_with = "parallel")]
+    pub fail_fast: bool,
 }
 
 #[derive(Args)]
+#[command(disable_help_subcommand = true)]
+pub struct CookieJarArgs {
+    #[command(subcommand)]
+    pub command: CookieJarCommands,
+}
+
+#[derive(Subcommand)]
+pub enum CookieJarCommands {
+    /// List cookie jars in a workspace
+    List {
+        /// Workspace ID (optional when exactly one workspace exists)
+        workspace_id: Option<String>,
+    },
+}
+
+#[derive(Args)]
+#[command(disable_help_subcommand = true)]
 pub struct WorkspaceArgs {
     #[command(subcommand)]
     pub command: WorkspaceCommands,
@@ -55,6 +119,13 @@ pub struct WorkspaceArgs {
 pub enum WorkspaceCommands {
     /// List all workspaces
     List,
+
+    /// Output JSON schema for workspace create/update payloads
+    Schema {
+        /// Pretty-print schema JSON output
+        #[arg(long)]
+        pretty: bool,
+    },
 
     /// Show a workspace as JSON
     Show {
@@ -100,6 +171,7 @@ pub enum WorkspaceCommands {
 }
 
 #[derive(Args)]
+#[command(disable_help_subcommand = true)]
 pub struct RequestArgs {
     #[command(subcommand)]
     pub command: RequestCommands,
@@ -109,8 +181,8 @@ pub struct RequestArgs {
 pub enum RequestCommands {
     /// List requests in a workspace
     List {
-        /// Workspace ID
-        workspace_id: String,
+        /// Workspace ID (optional when exactly one workspace exists)
+        workspace_id: Option<String>,
     },
 
     /// Show a request as JSON
@@ -119,10 +191,20 @@ pub enum RequestCommands {
         request_id: String,
     },
 
-    /// Send an HTTP request by ID
+    /// Send a request by ID
     Send {
         /// Request ID
         request_id: String,
+    },
+
+    /// Output JSON schema for request create/update payloads
+    Schema {
+        #[arg(value_enum)]
+        request_type: RequestSchemaType,
+
+        /// Pretty-print schema JSON output
+        #[arg(long)]
+        pretty: bool,
     },
 
     /// Create a new HTTP request
@@ -169,7 +251,36 @@ pub enum RequestCommands {
     },
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum RequestSchemaType {
+    Http,
+    Grpc,
+    Websocket,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    pub fn as_filter(self) -> log::LevelFilter {
+        match self {
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
+}
+
 #[derive(Args)]
+#[command(disable_help_subcommand = true)]
 pub struct FolderArgs {
     #[command(subcommand)]
     pub command: FolderCommands,
@@ -179,8 +290,8 @@ pub struct FolderArgs {
 pub enum FolderCommands {
     /// List folders in a workspace
     List {
-        /// Workspace ID
-        workspace_id: String,
+        /// Workspace ID (optional when exactly one workspace exists)
+        workspace_id: Option<String>,
     },
 
     /// Show a folder as JSON
@@ -226,6 +337,7 @@ pub enum FolderCommands {
 }
 
 #[derive(Args)]
+#[command(disable_help_subcommand = true)]
 pub struct EnvironmentArgs {
     #[command(subcommand)]
     pub command: EnvironmentCommands,
@@ -235,8 +347,15 @@ pub struct EnvironmentArgs {
 pub enum EnvironmentCommands {
     /// List environments in a workspace
     List {
-        /// Workspace ID
-        workspace_id: String,
+        /// Workspace ID (optional when exactly one workspace exists)
+        workspace_id: Option<String>,
+    },
+
+    /// Output JSON schema for environment create/update payloads
+    Schema {
+        /// Pretty-print schema JSON output
+        #[arg(long)]
+        pretty: bool,
     },
 
     /// Show an environment as JSON
@@ -246,15 +365,22 @@ pub enum EnvironmentCommands {
     },
 
     /// Create an environment
+    #[command(after_help = r#"Modes (choose one):
+  1) yaak environment create <workspace_id> --name <name>
+  2) yaak environment create --json '{"workspaceId":"wk_abc","name":"Production"}'
+  3) yaak environment create '{"workspaceId":"wk_abc","name":"Production"}'
+  4) yaak environment create <workspace_id> --json '{"name":"Production"}'
+"#)]
     Create {
-        /// Workspace ID (or positional JSON payload shorthand)
+        /// Workspace ID for flag-based mode, or positional JSON payload shorthand
+        #[arg(value_name = "WORKSPACE_ID_OR_JSON")]
         workspace_id: Option<String>,
 
         /// Environment name
         #[arg(short, long)]
         name: Option<String>,
 
-        /// JSON payload
+        /// JSON payload (use instead of WORKSPACE_ID/--name)
         #[arg(long)]
         json: Option<String>,
     },
@@ -279,4 +405,71 @@ pub enum EnvironmentCommands {
         #[arg(short, long)]
         yes: bool,
     },
+}
+
+#[derive(Args)]
+#[command(disable_help_subcommand = true)]
+pub struct AuthArgs {
+    #[command(subcommand)]
+    pub command: AuthCommands,
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommands {
+    /// Login to Yaak via web browser
+    Login,
+
+    /// Sign out of the Yaak CLI
+    Logout,
+
+    /// Print the current logged-in user's info
+    Whoami,
+}
+
+#[derive(Args)]
+#[command(disable_help_subcommand = true)]
+pub struct PluginArgs {
+    #[command(subcommand)]
+    pub command: PluginCommands,
+}
+
+#[derive(Subcommand)]
+pub enum PluginCommands {
+    /// Transpile code into a runnable plugin bundle
+    Build(PluginPathArg),
+
+    /// Build plugin bundle continuously when the filesystem changes
+    Dev(PluginPathArg),
+
+    /// Generate a "Hello World" Yaak plugin
+    Generate(GenerateArgs),
+
+    /// Install a plugin from a local directory or from the registry
+    Install(InstallPluginArgs),
+
+    /// Publish a Yaak plugin version to the plugin registry
+    Publish(PluginPathArg),
+}
+
+#[derive(Args, Clone)]
+pub struct PluginPathArg {
+    /// Path to plugin directory (defaults to current working directory)
+    pub path: Option<PathBuf>,
+}
+
+#[derive(Args, Clone)]
+pub struct GenerateArgs {
+    /// Plugin name (defaults to a generated name in interactive mode)
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// Output directory for the generated plugin (defaults to ./<name> in interactive mode)
+    #[arg(long)]
+    pub dir: Option<PathBuf>,
+}
+
+#[derive(Args, Clone)]
+pub struct InstallPluginArgs {
+    /// Local plugin directory path, or registry plugin spec (@org/plugin[@version])
+    pub source: String,
 }

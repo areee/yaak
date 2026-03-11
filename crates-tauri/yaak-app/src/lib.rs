@@ -31,14 +31,16 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use tokio::sync::Mutex;
 use tokio::task::block_in_place;
 use tokio::time;
+use yaak_common::command::new_checked_command;
 use yaak_crypto::manager::EncryptionManager;
 use yaak_grpc::manager::{GrpcConfig, GrpcHandle};
+use yaak_templates::strip_json_comments::strip_json_comments;
 use yaak_grpc::{Code, ServiceDefinition, serialize_message};
 use yaak_mac_window::AppHandleMacWindowExt;
 use yaak_models::models::{
     AnyModel, CookieJar, Environment, GrpcConnection, GrpcConnectionState, GrpcEvent,
-    GrpcEventType, HttpRequest, HttpResponse, HttpResponseEvent, HttpResponseState, Plugin,
-    Workspace, WorkspaceMeta,
+    GrpcEventType, HttpRequest, HttpResponse, HttpResponseEvent, HttpResponseState, Workspace,
+    WorkspaceMeta,
 };
 use yaak_models::util::{BatchUpsertResult, UpdateSource, get_workspace_export_resources};
 use yaak_plugins::events::{
@@ -97,6 +99,7 @@ impl<R: Runtime> PluginContextExt<R> for WebviewWindow<R> {
 struct AppMetaData {
     is_dev: bool,
     version: String,
+    cli_version: Option<String>,
     name: String,
     app_data_dir: String,
     app_log_dir: String,
@@ -113,9 +116,11 @@ async fn cmd_metadata(app_handle: AppHandle) -> YaakResult<AppMetaData> {
     let vendored_plugin_dir =
         app_handle.path().resolve("vendored/plugins", BaseDirectory::Resource)?;
     let default_project_dir = app_handle.path().home_dir()?.join("YaakProjects");
+    let cli_version = detect_cli_version().await;
     Ok(AppMetaData {
         is_dev: is_dev(),
         version: app_handle.package_info().version.to_string(),
+        cli_version,
         name: app_handle.package_info().name.to_string(),
         app_data_dir: app_data_dir.to_string_lossy().to_string(),
         app_log_dir: app_log_dir.to_string_lossy().to_string(),
@@ -124,6 +129,24 @@ async fn cmd_metadata(app_handle: AppHandle) -> YaakResult<AppMetaData> {
         feature_license: cfg!(feature = "license"),
         feature_updater: cfg!(feature = "updater"),
     })
+}
+
+async fn detect_cli_version() -> Option<String> {
+    detect_cli_version_for_binary("yaak").await
+}
+
+async fn detect_cli_version_for_binary(program: &str) -> Option<String> {
+    let mut cmd = new_checked_command(program, "--version").await.ok()?;
+    let out = cmd.arg("--version").output().await.ok()?;
+    if !out.status.success() {
+        return None;
+    }
+
+    let line = String::from_utf8(out.stdout).ok()?;
+    let line = line.lines().find(|l| !l.trim().is_empty())?.trim();
+    let mut parts = line.split_whitespace();
+    let _name = parts.next();
+    Some(parts.next().unwrap_or(line).to_string())
 }
 
 #[tauri::command]
@@ -411,6 +434,7 @@ async fn cmd_grpc_go<R: Runtime>(
                             result.expect("Failed to render template")
                         })
                     });
+                    let msg = strip_json_comments(&msg);
                     in_msg_tx.try_send(msg.clone()).unwrap();
                 }
                 Ok(IncomingMsg::Commit) => {
@@ -446,6 +470,7 @@ async fn cmd_grpc_go<R: Runtime>(
             &RenderOptions { error_behavior: RenderErrorBehavior::Throw },
         )
         .await?;
+        let msg = strip_json_comments(&msg);
 
         app_handle.db().upsert_grpc_event(
             &GrpcEvent {
@@ -845,6 +870,14 @@ async fn cmd_send_ephemeral_request<R: Runtime>(
 #[tauri::command]
 async fn cmd_format_json(text: &str) -> YaakResult<String> {
     Ok(format_json(text, "  "))
+}
+
+#[tauri::command]
+async fn cmd_format_graphql(text: &str) -> YaakResult<String> {
+    match pretty_graphql::format_text(text, &Default::default()) {
+        Ok(formatted) => Ok(formatted),
+        Err(_) => Ok(text.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -1346,29 +1379,6 @@ async fn cmd_send_http_request<R: Runtime>(
 }
 
 #[tauri::command]
-async fn cmd_install_plugin<R: Runtime>(
-    directory: &str,
-    url: Option<String>,
-    plugin_manager: State<'_, PluginManager>,
-    app_handle: AppHandle<R>,
-    window: WebviewWindow<R>,
-) -> YaakResult<Plugin> {
-    let plugin = app_handle.db().upsert_plugin(
-        &Plugin { directory: directory.into(), url, enabled: true, ..Default::default() },
-        &UpdateSource::from_window_label(window.label()),
-    )?;
-
-    plugin_manager
-        .add_plugin(
-            &PluginContext::new(Some(window.label().to_string()), window.workspace_id()),
-            &plugin,
-        )
-        .await?;
-
-    Ok(plugin)
-}
-
-#[tauri::command]
 async fn cmd_reload_plugins<R: Runtime>(
     app_handle: AppHandle<R>,
     window: WebviewWindow<R>,
@@ -1639,6 +1649,7 @@ pub fn run() {
             cmd_http_request_body,
             cmd_http_response_body,
             cmd_format_json,
+            cmd_format_graphql,
             cmd_get_http_authentication_summaries,
             cmd_get_http_authentication_config,
             cmd_get_sse_events,
@@ -1652,7 +1663,6 @@ pub fn run() {
             cmd_workspace_actions,
             cmd_folder_actions,
             cmd_import_data,
-            cmd_install_plugin,
             cmd_metadata,
             cmd_new_child_window,
             cmd_new_main_window,
@@ -1721,6 +1731,7 @@ pub fn run() {
             git_ext::cmd_git_rm_remote,
             //
             // Plugin commands
+            plugins_ext::cmd_plugins_install_from_directory,
             plugins_ext::cmd_plugins_search,
             plugins_ext::cmd_plugins_install,
             plugins_ext::cmd_plugins_uninstall,

@@ -70,7 +70,6 @@
     "app-dev": "node scripts/run-dev.mjs",
     "migration": "node scripts/create-migration.cjs",
     "build": "npm run --workspaces --if-present build",
-    "build-plugins": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "icons": "run-p icons:*",
     "icons:dev": "tauri icon crates-tauri/yaak-app/icons/icon-dev.png --output crates-tauri/yaak-app/icons/dev",
@@ -98,7 +97,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
     "@tauri-apps/cli": "^2.9.6",
-    "@yaakapp/cli": "^0.3.4",
+    "@yaakapp/cli": "^0.5.1",
     "dotenv-cli": "^11.0.0",
     "husky": "^9.1.7",
     "nodejs-file-downloader": "^4.13.0",

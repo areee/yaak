@@ -9,13 +9,13 @@ import {
   searchPlugins,
   uninstallPlugin,
 } from '@yaakapp-internal/plugins';
+import classNames from 'classnames';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useInstallPlugin } from '../../hooks/useInstallPlugin';
 import { usePluginInfo } from '../../hooks/usePluginInfo';
 import { usePluginsKey, useRefreshPlugins } from '../../hooks/usePlugins';
-import { appInfo } from '../../lib/appInfo';
 import { showConfirmDelete } from '../../lib/confirm';
 import { minPromiseMillis } from '../../lib/minPromiseMillis';
 import { Button } from '../core/Button';
@@ -33,16 +33,6 @@ import { TabContent, Tabs } from '../core/Tabs/Tabs';
 import { EmptyStateText } from '../EmptyStateText';
 import { SelectFile } from '../SelectFile';
 
-function isPluginBundled(plugin: Plugin, vendoredPluginDir: string): boolean {
-  const normalizedDir = plugin.directory.replace(/\\/g, '/');
-  const normalizedVendoredDir = vendoredPluginDir.replace(/\\/g, '/');
-  return (
-    normalizedDir.includes(normalizedVendoredDir) ||
-    normalizedDir.includes('vendored/plugins') ||
-    normalizedDir.includes('/plugins/')
-  );
-}
-
 interface SettingsPluginsProps {
   defaultSubtab?: string;
 }
@@ -50,8 +40,8 @@ interface SettingsPluginsProps {
 export function SettingsPlugins({ defaultSubtab }: SettingsPluginsProps) {
   const [directory, setDirectory] = useState<string | null>(null);
   const plugins = useAtomValue(pluginsAtom);
-  const bundledPlugins = plugins.filter((p) => isPluginBundled(p, appInfo.vendoredPluginDir));
-  const installedPlugins = plugins.filter((p) => !isPluginBundled(p, appInfo.vendoredPluginDir));
+  const bundledPlugins = plugins.filter((p) => p.source === 'bundled');
+  const installedPlugins = plugins.filter((p) => p.source !== 'bundled');
   const createPlugin = useInstallPlugin();
   const refreshPlugins = useRefreshPlugins();
   return (
@@ -60,6 +50,7 @@ export function SettingsPlugins({ defaultSubtab }: SettingsPluginsProps) {
         defaultValue={defaultSubtab}
         label="Plugins"
         addBorders
+        tabListClassName="px-6 pt-2"
         tabs={[
           { label: 'Discover', value: 'search' },
           {
@@ -74,13 +65,13 @@ export function SettingsPlugins({ defaultSubtab }: SettingsPluginsProps) {
           },
         ]}
       >
-        <TabContent value="search">
+        <TabContent value="search" className="px-6">
           <PluginSearch />
         </TabContent>
         <TabContent value="installed" className="pb-0">
           <div className="h-full grid grid-rows-[minmax(0,1fr)_auto]">
-            <InstalledPlugins plugins={installedPlugins} />
-            <footer className="grid grid-cols-[minmax(0,1fr)_auto] -mx-4 py-2 px-4 border-t bg-surface-highlight border-border-subtle min-w-0">
+            <InstalledPlugins plugins={installedPlugins} className="px-6" />
+            <footer className="grid grid-cols-[minmax(0,1fr)_auto] py-2 px-4 border-t bg-surface-highlight border-border-subtle min-w-0">
               <SelectFile
                 size="xs"
                 noun="Plugin"
@@ -122,7 +113,7 @@ export function SettingsPlugins({ defaultSubtab }: SettingsPluginsProps) {
             </footer>
           </div>
         </TabContent>
-        <TabContent value="bundled" className="pb-0">
+        <TabContent value="bundled" className="pb-0 px-6">
           <BundledPlugins plugins={bundledPlugins} />
         </TabContent>
       </Tabs>
@@ -341,9 +332,9 @@ function PluginSearch() {
   );
 }
 
-function InstalledPlugins({ plugins }: { plugins: Plugin[] }) {
+function InstalledPlugins({ plugins, className }: { plugins: Plugin[]; className?: string }) {
   return plugins.length === 0 ? (
-    <div className="pb-4">
+    <div className={classNames(className, 'pb-4')}>
       <EmptyStateText className="text-center">
         Plugins extend the functionality of Yaak.
         <br />
@@ -351,7 +342,7 @@ function InstalledPlugins({ plugins }: { plugins: Plugin[] }) {
       </EmptyStateText>
     </div>
   ) : (
-    <Table scrollable>
+    <Table scrollable className={className}>
       <TableHead>
         <TableRow>
           <TableHeaderCell className="w-0" />

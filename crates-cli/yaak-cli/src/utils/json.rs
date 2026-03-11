@@ -25,9 +25,9 @@ pub fn parse_optional_json(
     context: &str,
 ) -> JsonResult<Option<Value>> {
     match (json_flag, json_shorthand) {
-        (Some(_), Some(_)) => Err(format!(
-            "Cannot provide both --json and positional JSON for {context}"
-        )),
+        (Some(_), Some(_)) => {
+            Err(format!("Cannot provide both --json and positional JSON for {context}"))
+        }
         (Some(raw), None) => parse_json_object(&raw, context).map(Some),
         (None, Some(raw)) => parse_json_object(&raw, context).map(Some),
         (None, None) => Ok(None),
@@ -39,9 +39,8 @@ pub fn parse_required_json(
     json_shorthand: Option<String>,
     context: &str,
 ) -> JsonResult<Value> {
-    parse_optional_json(json_flag, json_shorthand, context)?.ok_or_else(|| {
-        format!("Missing JSON payload for {context}. Use --json or positional JSON")
-    })
+    parse_optional_json(json_flag, json_shorthand, context)?
+        .ok_or_else(|| format!("Missing JSON payload for {context}. Use --json or positional JSON"))
 }
 
 pub fn require_id(payload: &Value, context: &str) -> JsonResult<String> {
@@ -60,10 +59,32 @@ pub fn validate_create_id(payload: &Value, context: &str) -> JsonResult<()> {
 
     match id_value {
         Value::String(id) if id.is_empty() => Ok(()),
-        _ => Err(format!(
-            "{context} create JSON must omit \"id\" or set it to an empty string"
-        )),
+        _ => Err(format!("{context} create JSON must omit \"id\" or set it to an empty string")),
     }
+}
+
+pub fn merge_workspace_id_arg(
+    workspace_id_from_arg: Option<&str>,
+    payload_workspace_id: &mut String,
+    context: &str,
+) -> JsonResult<()> {
+    if let Some(workspace_id_arg) = workspace_id_from_arg {
+        if payload_workspace_id.is_empty() {
+            *payload_workspace_id = workspace_id_arg.to_string();
+        } else if payload_workspace_id != workspace_id_arg {
+            return Err(format!(
+                "{context} got conflicting workspace_id values between positional arg and JSON payload"
+            ));
+        }
+    }
+
+    if payload_workspace_id.is_empty() {
+        return Err(format!(
+            "{context} requires non-empty \"workspaceId\" in JSON payload or positional workspace_id"
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn apply_merge_patch<T>(existing: &T, patch: &Value, id: &str, context: &str) -> JsonResult<T>

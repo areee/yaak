@@ -21,14 +21,14 @@ use tauri::{
 };
 use tokio::sync::Mutex;
 use ts_rs::TS;
-use yaak_api::yaak_api_client;
-use yaak_models::models::Plugin;
+use yaak_api::{ApiClientKind, yaak_api_client};
+use yaak_models::models::{Plugin, PluginSource};
 use yaak_models::util::UpdateSource;
 use yaak_plugins::api::{
     PluginNameVersion, PluginSearchResponse, PluginUpdatesResponse, check_plugin_updates,
     search_plugins,
 };
-use yaak_plugins::events::{Color, Icon, PluginContext, ShowToastRequest};
+use yaak_plugins::events::PluginContext;
 use yaak_plugins::install::{delete_and_uninstall, download_and_install};
 use yaak_plugins::manager::PluginManager;
 use yaak_plugins::plugin_meta::get_plugin_meta;
@@ -73,7 +73,7 @@ impl PluginUpdater {
         info!("Checking for plugin updates");
 
         let app_version = window.app_handle().package_info().version.to_string();
-        let http_client = yaak_api_client(&app_version)?;
+        let http_client = yaak_api_client(ApiClientKind::App, &app_version)?;
         let plugins = window.app_handle().db().list_plugins()?;
         let updates = check_plugin_updates(&http_client, plugins.clone()).await?;
 
@@ -138,7 +138,7 @@ pub async fn cmd_plugins_search<R: Runtime>(
     query: &str,
 ) -> Result<PluginSearchResponse> {
     let app_version = app_handle.package_info().version.to_string();
-    let http_client = yaak_api_client(&app_version)?;
+    let http_client = yaak_api_client(ApiClientKind::App, &app_version)?;
     Ok(search_plugins(&http_client, query).await?)
 }
 
@@ -150,7 +150,7 @@ pub async fn cmd_plugins_install<R: Runtime>(
 ) -> Result<()> {
     let plugin_manager = Arc::new((*window.state::<PluginManager>()).clone());
     let app_version = window.app_handle().package_info().version.to_string();
-    let http_client = yaak_api_client(&app_version)?;
+    let http_client = yaak_api_client(ApiClientKind::App, &app_version)?;
     let query_manager = window.state::<yaak_models::query_manager::QueryManager>();
     let plugin_context = window.plugin_context();
     download_and_install(
@@ -163,6 +163,28 @@ pub async fn cmd_plugins_install<R: Runtime>(
     )
     .await?;
     Ok(())
+}
+
+#[command]
+pub async fn cmd_plugins_install_from_directory<R: Runtime>(
+    window: WebviewWindow<R>,
+    directory: &str,
+) -> Result<Plugin> {
+    let plugin = window.db().upsert_plugin(
+        &Plugin {
+            directory: directory.into(),
+            url: None,
+            enabled: true,
+            source: PluginSource::Filesystem,
+            ..Default::default()
+        },
+        &UpdateSource::from_window_label(window.label()),
+    )?;
+
+    let plugin_manager = Arc::new((*window.state::<PluginManager>()).clone());
+    plugin_manager.add_plugin(&window.plugin_context(), &plugin).await?;
+
+    Ok(plugin)
 }
 
 #[command]
@@ -181,7 +203,7 @@ pub async fn cmd_plugins_updates<R: Runtime>(
     app_handle: AppHandle<R>,
 ) -> Result<PluginUpdatesResponse> {
     let app_version = app_handle.package_info().version.to_string();
-    let http_client = yaak_api_client(&app_version)?;
+    let http_client = yaak_api_client(ApiClientKind::App, &app_version)?;
     let plugins = app_handle.db().list_plugins()?;
     Ok(check_plugin_updates(&http_client, plugins).await?)
 }
@@ -191,7 +213,7 @@ pub async fn cmd_plugins_update_all<R: Runtime>(
     window: WebviewWindow<R>,
 ) -> Result<Vec<PluginNameVersion>> {
     let app_version = window.app_handle().package_info().version.to_string();
-    let http_client = yaak_api_client(&app_version)?;
+    let http_client = yaak_api_client(ApiClientKind::App, &app_version)?;
     let plugins = window.db().list_plugins()?;
 
     // Get list of available updates (already filtered to only registry plugins)
@@ -268,6 +290,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 .join("index.cjs");
 
             let dev_mode = is_dev();
+            let query_manager =
+                app_handle.state::<yaak_models::query_manager::QueryManager>().inner().clone();
 
             // Create plugin manager asynchronously
             let app_handle_clone = app_handle.clone();
@@ -277,53 +301,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                     installed_plugin_dir,
                     node_bin_path,
                     plugin_runtime_main,
+                    &query_manager,
+                    &PluginContext::new_empty(),
                     dev_mode,
                 )
-                .await;
-
-                // Initialize all plugins after manager is created
-                let bundled_dirs = manager
-                    .list_bundled_plugin_dirs()
-                    .await
-                    .expect("Failed to list bundled plugins");
-
-                // Ensure all bundled plugins make it into the database
-                let db = app_handle_clone.db();
-                for dir in &bundled_dirs {
-                    if db.get_plugin_by_directory(dir).is_none() {
-                        db.upsert_plugin(
-                            &Plugin {
-                                directory: dir.clone(),
-                                enabled: true,
-                                url: None,
-                                ..Default::default()
-                            },
-                            &UpdateSource::Background,
-                        )
-                        .expect("Failed to upsert bundled plugin");
-                    }
-                }
-
-                // Get all plugins from database and initialize
-                let plugins = db.list_plugins().expect("Failed to list plugins from database");
-                drop(db); // Explicitly drop the connection before await
-
-                let errors =
-                    manager.initialize_all_plugins(plugins, &PluginContext::new_empty()).await;
-
-                // Show toast for any failed plugins
-                for (plugin_dir, error_msg) in errors {
-                    let plugin_name = plugin_dir.split('/').last().unwrap_or(&plugin_dir);
-                    let toast = ShowToastRequest {
-                        message: format!("Failed to start plugin '{}': {}", plugin_name, error_msg),
-                        color: Some(Color::Danger),
-                        icon: Some(Icon::AlertTriangle),
-                        timeout: Some(10000),
-                    };
-                    if let Err(emit_err) = app_handle_clone.emit("show_toast", toast) {
-                        error!("Failed to emit toast for plugin error: {emit_err:?}");
-                    }
-                }
+                .await
+                .expect("Failed to initialize plugins");
 
                 app_handle_clone.manage(manager);
             });

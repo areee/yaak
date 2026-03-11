@@ -2,9 +2,12 @@ use crate::cli::{EnvironmentArgs, EnvironmentCommands};
 use crate::context::CliContext;
 use crate::utils::confirm::confirm_delete;
 use crate::utils::json::{
-    apply_merge_patch, is_json_shorthand, parse_optional_json, parse_required_json, require_id,
-    validate_create_id,
+    apply_merge_patch, is_json_shorthand, merge_workspace_id_arg, parse_optional_json,
+    parse_required_json, require_id, validate_create_id,
 };
+use crate::utils::schema::append_agent_hints;
+use crate::utils::workspace::resolve_workspace_id;
+use schemars::schema_for;
 use yaak_models::models::Environment;
 use yaak_models::util::UpdateSource;
 
@@ -12,7 +15,8 @@ type CommandResult<T = ()> = std::result::Result<T, String>;
 
 pub fn run(ctx: &CliContext, args: EnvironmentArgs) -> i32 {
     let result = match args.command {
-        EnvironmentCommands::List { workspace_id } => list(ctx, &workspace_id),
+        EnvironmentCommands::List { workspace_id } => list(ctx, workspace_id.as_deref()),
+        EnvironmentCommands::Schema { pretty } => schema(pretty),
         EnvironmentCommands::Show { environment_id } => show(ctx, &environment_id),
         EnvironmentCommands::Create { workspace_id, name, json } => {
             create(ctx, workspace_id, name, json)
@@ -30,10 +34,23 @@ pub fn run(ctx: &CliContext, args: EnvironmentArgs) -> i32 {
     }
 }
 
-fn list(ctx: &CliContext, workspace_id: &str) -> CommandResult {
+fn schema(pretty: bool) -> CommandResult {
+    let mut schema = serde_json::to_value(schema_for!(Environment))
+        .map_err(|e| format!("Failed to serialize environment schema: {e}"))?;
+    append_agent_hints(&mut schema);
+
+    let output =
+        if pretty { serde_json::to_string_pretty(&schema) } else { serde_json::to_string(&schema) }
+            .map_err(|e| format!("Failed to format environment schema JSON: {e}"))?;
+    println!("{output}");
+    Ok(())
+}
+
+fn list(ctx: &CliContext, workspace_id: Option<&str>) -> CommandResult {
+    let workspace_id = resolve_workspace_id(ctx, workspace_id, "environment list")?;
     let environments = ctx
         .db()
-        .list_environments_ensure_base(workspace_id)
+        .list_environments_ensure_base(&workspace_id)
         .map_err(|e| format!("Failed to list environments: {e}"))?;
 
     if environments.is_empty() {
@@ -51,8 +68,8 @@ fn show(ctx: &CliContext, environment_id: &str) -> CommandResult {
         .db()
         .get_environment(environment_id)
         .map_err(|e| format!("Failed to get environment: {e}"))?;
-    let output =
-        serde_json::to_string_pretty(&environment).map_err(|e| format!("Failed to serialize environment: {e}"))?;
+    let output = serde_json::to_string_pretty(&environment)
+        .map_err(|e| format!("Failed to serialize environment: {e}"))?;
     println!("{output}");
     Ok(())
 }
@@ -63,17 +80,11 @@ fn create(
     name: Option<String>,
     json: Option<String>,
 ) -> CommandResult {
-    if json.is_some() && workspace_id.as_deref().is_some_and(|v| !is_json_shorthand(v)) {
-        return Err(
-            "environment create cannot combine workspace_id with --json payload".to_string()
-        );
-    }
+    let json_shorthand =
+        workspace_id.as_deref().filter(|v| is_json_shorthand(v)).map(str::to_owned);
+    let workspace_id_arg = workspace_id.filter(|v| !is_json_shorthand(v));
 
-    let payload = parse_optional_json(
-        json,
-        workspace_id.clone().filter(|v| is_json_shorthand(v)),
-        "environment create",
-    )?;
+    let payload = parse_optional_json(json, json_shorthand, "environment create")?;
 
     if let Some(payload) = payload {
         if name.is_some() {
@@ -81,13 +92,19 @@ fn create(
         }
 
         validate_create_id(&payload, "environment")?;
-        let mut environment: Environment =
-            serde_json::from_value(payload)
-                .map_err(|e| format!("Failed to parse environment create JSON: {e}"))?;
-
-        if environment.workspace_id.is_empty() {
-            return Err("environment create JSON requires non-empty \"workspaceId\"".to_string());
-        }
+        let mut environment: Environment = serde_json::from_value(payload)
+            .map_err(|e| format!("Failed to parse environment create JSON: {e}"))?;
+        let fallback_workspace_id =
+            if workspace_id_arg.is_none() && environment.workspace_id.is_empty() {
+                Some(resolve_workspace_id(ctx, None, "environment create")?)
+            } else {
+                None
+            };
+        merge_workspace_id_arg(
+            workspace_id_arg.as_deref().or(fallback_workspace_id.as_deref()),
+            &mut environment.workspace_id,
+            "environment create",
+        )?;
 
         if environment.parent_model.is_empty() {
             environment.parent_model = "environment".to_string();
@@ -102,11 +119,11 @@ fn create(
         return Ok(());
     }
 
-    let workspace_id = workspace_id.ok_or_else(|| {
-        "environment create requires workspace_id unless JSON payload is provided".to_string()
+    let workspace_id =
+        resolve_workspace_id(ctx, workspace_id_arg.as_deref(), "environment create")?;
+    let name = name.ok_or_else(|| {
+        "environment create requires --name unless JSON payload is provided".to_string()
     })?;
-    let name = name
-        .ok_or_else(|| "environment create requires --name unless JSON payload is provided".to_string())?;
 
     let environment = Environment {
         workspace_id,

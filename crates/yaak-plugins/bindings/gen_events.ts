@@ -18,12 +18,12 @@ export type CallHttpAuthenticationActionRequest = { index: number, pluginRefId: 
 
 export type CallHttpAuthenticationRequest = { contextId: string, values: { [key in string]?: JsonPrimitive }, method: string, url: string, headers: Array<HttpHeader>, };
 
-export type CallHttpAuthenticationResponse = { 
+export type CallHttpAuthenticationResponse = {
 /**
  * HTTP headers to add to the request. Existing headers will be replaced, while
  * new headers will be added.
  */
-setHeaders?: Array<HttpHeader>, 
+setHeaders?: Array<HttpHeader>,
 /**
  * Query parameters to add to the request. Existing params will be replaced, while
  * new params will be added.
@@ -78,7 +78,7 @@ export type ExportHttpRequestRequest = { httpRequest: HttpRequest, };
 
 export type ExportHttpRequestResponse = { content: string, };
 
-export type FileFilter = { name: string, 
+export type FileFilter = { name: string,
 /**
  * File extensions to require
  */
@@ -100,149 +100,149 @@ export type FormInputAccordion = { label: string, inputs?: Array<FormInput>, hid
 
 export type FormInputBanner = { inputs?: Array<FormInput>, hidden?: boolean, color?: Color, };
 
-export type FormInputBase = { 
+export type FormInputBase = {
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
 description?: string, };
 
-export type FormInputCheckbox = { 
+export type FormInputCheckbox = {
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
 description?: string, };
 
-export type FormInputEditor = { 
+export type FormInputEditor = {
 /**
  * Placeholder for the text input
  */
-placeholder?: string | null, 
+placeholder?: string | null,
 /**
  * Don't show the editor gutter (line numbers, folds, etc.)
  */
-hideGutter?: boolean, 
+hideGutter?: boolean,
 /**
  * Language for syntax highlighting
  */
-language?: EditorLanguage, readOnly?: boolean, 
+language?: EditorLanguage, readOnly?: boolean,
 /**
  * Fixed number of visible rows
  */
-rows?: number, completionOptions?: Array<GenericCompletionOption>, 
+rows?: number, completionOptions?: Array<GenericCompletionOption>,
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
 description?: string, };
 
-export type FormInputFile = { 
+export type FormInputFile = {
 /**
  * The title of the file selection window
  */
-title: string, 
+title: string,
 /**
  * Allow selecting multiple files
  */
-multiple?: boolean, directory?: boolean, defaultPath?: string, filters?: Array<FileFilter>, 
+multiple?: boolean, directory?: boolean, defaultPath?: string, filters?: Array<FileFilter>,
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
@@ -250,63 +250,63 @@ description?: string, };
 
 export type FormInputHStack = { inputs?: Array<FormInput>, hidden?: boolean, };
 
-export type FormInputHttpRequest = { 
+export type FormInputHttpRequest = {
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
 description?: string, };
 
-export type FormInputKeyValue = { 
+export type FormInputKeyValue = {
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
@@ -314,36 +314,36 @@ description?: string, };
 
 export type FormInputMarkdown = { content: string, hidden?: boolean, };
 
-export type FormInputSelect = { 
+export type FormInputSelect = {
 /**
  * The options that will be available in the select input
  */
-options: Array<FormInputSelectOption>, 
+options: Array<FormInputSelectOption>,
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
@@ -351,44 +351,44 @@ description?: string, };
 
 export type FormInputSelectOption = { label: string, value: string, };
 
-export type FormInputText = { 
+export type FormInputText = {
 /**
  * Placeholder for the text input
  */
-placeholder?: string | null, 
+placeholder?: string | null,
 /**
  * Placeholder for the text input
  */
-password?: boolean, 
+password?: boolean,
 /**
  * Whether to allow newlines in the input, like a <textarea/>
  */
-multiLine?: boolean, completionOptions?: Array<GenericCompletionOption>, 
+multiLine?: boolean, completionOptions?: Array<GenericCompletionOption>,
 /**
  * The name of the input. The value will be stored at this object attribute in the resulting data
  */
-name: string, 
+name: string,
 /**
  * Whether this input is visible for the given configuration. Use this to
  * make branching forms.
  */
-hidden?: boolean, 
+hidden?: boolean,
 /**
  * Whether the user must fill in the argument
  */
-optional?: boolean, 
+optional?: boolean,
 /**
  * The label of the input
  */
-label?: string, 
+label?: string,
 /**
  * Visually hide the label of the input
  */
-hideLabel?: boolean, 
+hideLabel?: boolean,
 /**
  * The default value
  */
-defaultValue?: string, disabled?: boolean, 
+defaultValue?: string, disabled?: boolean,
 /**
  * Longer description of the input, likely shown in a tooltip
  */
@@ -452,7 +452,7 @@ export type ImportResponse = { resources: ImportResources, };
 
 export type InternalEvent = { id: string, pluginRefId: string, pluginName: string, replyId: string | null, context: PluginContext, payload: InternalEventPayload, };
 
-export type InternalEventPayload = { "type": "boot_request" } & BootRequest | { "type": "boot_response" } | { "type": "reload_response" } & ReloadResponse | { "type": "terminate_request" } | { "type": "terminate_response" } | { "type": "import_request" } & ImportRequest | { "type": "import_response" } & ImportResponse | { "type": "filter_request" } & FilterRequest | { "type": "filter_response" } & FilterResponse | { "type": "export_http_request_request" } & ExportHttpRequestRequest | { "type": "export_http_request_response" } & ExportHttpRequestResponse | { "type": "send_http_request_request" } & SendHttpRequestRequest | { "type": "send_http_request_response" } & SendHttpRequestResponse | { "type": "list_cookie_names_request" } & ListCookieNamesRequest | { "type": "list_cookie_names_response" } & ListCookieNamesResponse | { "type": "get_cookie_value_request" } & GetCookieValueRequest | { "type": "get_cookie_value_response" } & GetCookieValueResponse | { "type": "get_http_request_actions_request" } & EmptyPayload | { "type": "get_http_request_actions_response" } & GetHttpRequestActionsResponse | { "type": "call_http_request_action_request" } & CallHttpRequestActionRequest | { "type": "get_websocket_request_actions_request" } & EmptyPayload | { "type": "get_websocket_request_actions_response" } & GetWebsocketRequestActionsResponse | { "type": "call_websocket_request_action_request" } & CallWebsocketRequestActionRequest | { "type": "get_workspace_actions_request" } & EmptyPayload | { "type": "get_workspace_actions_response" } & GetWorkspaceActionsResponse | { "type": "call_workspace_action_request" } & CallWorkspaceActionRequest | { "type": "get_folder_actions_request" } & EmptyPayload | { "type": "get_folder_actions_response" } & GetFolderActionsResponse | { "type": "call_folder_action_request" } & CallFolderActionRequest | { "type": "get_grpc_request_actions_request" } & EmptyPayload | { "type": "get_grpc_request_actions_response" } & GetGrpcRequestActionsResponse | { "type": "call_grpc_request_action_request" } & CallGrpcRequestActionRequest | { "type": "get_template_function_summary_request" } & EmptyPayload | { "type": "get_template_function_summary_response" } & GetTemplateFunctionSummaryResponse | { "type": "get_template_function_config_request" } & GetTemplateFunctionConfigRequest | { "type": "get_template_function_config_response" } & GetTemplateFunctionConfigResponse | { "type": "call_template_function_request" } & CallTemplateFunctionRequest | { "type": "call_template_function_response" } & CallTemplateFunctionResponse | { "type": "get_http_authentication_summary_request" } & EmptyPayload | { "type": "get_http_authentication_summary_response" } & GetHttpAuthenticationSummaryResponse | { "type": "get_http_authentication_config_request" } & GetHttpAuthenticationConfigRequest | { "type": "get_http_authentication_config_response" } & GetHttpAuthenticationConfigResponse | { "type": "call_http_authentication_request" } & CallHttpAuthenticationRequest | { "type": "call_http_authentication_response" } & CallHttpAuthenticationResponse | { "type": "call_http_authentication_action_request" } & CallHttpAuthenticationActionRequest | { "type": "call_http_authentication_action_response" } & EmptyPayload | { "type": "copy_text_request" } & CopyTextRequest | { "type": "copy_text_response" } & EmptyPayload | { "type": "render_http_request_request" } & RenderHttpRequestRequest | { "type": "render_http_request_response" } & RenderHttpRequestResponse | { "type": "render_grpc_request_request" } & RenderGrpcRequestRequest | { "type": "render_grpc_request_response" } & RenderGrpcRequestResponse | { "type": "template_render_request" } & TemplateRenderRequest | { "type": "template_render_response" } & TemplateRenderResponse | { "type": "get_key_value_request" } & GetKeyValueRequest | { "type": "get_key_value_response" } & GetKeyValueResponse | { "type": "set_key_value_request" } & SetKeyValueRequest | { "type": "set_key_value_response" } & SetKeyValueResponse | { "type": "delete_key_value_request" } & DeleteKeyValueRequest | { "type": "delete_key_value_response" } & DeleteKeyValueResponse | { "type": "open_window_request" } & OpenWindowRequest | { "type": "window_navigate_event" } & WindowNavigateEvent | { "type": "window_close_event" } | { "type": "close_window_request" } & CloseWindowRequest | { "type": "open_external_url_request" } & OpenExternalUrlRequest | { "type": "open_external_url_response" } & EmptyPayload | { "type": "show_toast_request" } & ShowToastRequest | { "type": "show_toast_response" } & EmptyPayload | { "type": "prompt_text_request" } & PromptTextRequest | { "type": "prompt_text_response" } & PromptTextResponse | { "type": "prompt_form_request" } & PromptFormRequest | { "type": "prompt_form_response" } & PromptFormResponse | { "type": "window_info_request" } & WindowInfoRequest | { "type": "window_info_response" } & WindowInfoResponse | { "type": "list_workspaces_request" } & ListWorkspacesRequest | { "type": "list_workspaces_response" } & ListWorkspacesResponse | { "type": "get_http_request_by_id_request" } & GetHttpRequestByIdRequest | { "type": "get_http_request_by_id_response" } & GetHttpRequestByIdResponse | { "type": "find_http_responses_request" } & FindHttpResponsesRequest | { "type": "find_http_responses_response" } & FindHttpResponsesResponse | { "type": "list_http_requests_request" } & ListHttpRequestsRequest | { "type": "list_http_requests_response" } & ListHttpRequestsResponse | { "type": "list_folders_request" } & ListFoldersRequest | { "type": "list_folders_response" } & ListFoldersResponse | { "type": "upsert_model_request" } & UpsertModelRequest | { "type": "upsert_model_response" } & UpsertModelResponse | { "type": "delete_model_request" } & DeleteModelRequest | { "type": "delete_model_response" } & DeleteModelResponse | { "type": "get_themes_request" } & GetThemesRequest | { "type": "get_themes_response" } & GetThemesResponse | { "type": "empty_response" } & EmptyPayload | { "type": "error_response" } & ErrorResponse;
+export type InternalEventPayload = { "type": "boot_request" } & BootRequest | { "type": "boot_response" } | { "type": "reload_response" } & ReloadResponse | { "type": "terminate_request" } | { "type": "terminate_response" } | { "type": "import_request" } & ImportRequest | { "type": "import_response" } & ImportResponse | { "type": "filter_request" } & FilterRequest | { "type": "filter_response" } & FilterResponse | { "type": "export_http_request_request" } & ExportHttpRequestRequest | { "type": "export_http_request_response" } & ExportHttpRequestResponse | { "type": "send_http_request_request" } & SendHttpRequestRequest | { "type": "send_http_request_response" } & SendHttpRequestResponse | { "type": "list_cookie_names_request" } & ListCookieNamesRequest | { "type": "list_cookie_names_response" } & ListCookieNamesResponse | { "type": "get_cookie_value_request" } & GetCookieValueRequest | { "type": "get_cookie_value_response" } & GetCookieValueResponse | { "type": "get_http_request_actions_request" } & EmptyPayload | { "type": "get_http_request_actions_response" } & GetHttpRequestActionsResponse | { "type": "call_http_request_action_request" } & CallHttpRequestActionRequest | { "type": "get_websocket_request_actions_request" } & EmptyPayload | { "type": "get_websocket_request_actions_response" } & GetWebsocketRequestActionsResponse | { "type": "call_websocket_request_action_request" } & CallWebsocketRequestActionRequest | { "type": "get_workspace_actions_request" } & EmptyPayload | { "type": "get_workspace_actions_response" } & GetWorkspaceActionsResponse | { "type": "call_workspace_action_request" } & CallWorkspaceActionRequest | { "type": "get_folder_actions_request" } & EmptyPayload | { "type": "get_folder_actions_response" } & GetFolderActionsResponse | { "type": "call_folder_action_request" } & CallFolderActionRequest | { "type": "get_grpc_request_actions_request" } & EmptyPayload | { "type": "get_grpc_request_actions_response" } & GetGrpcRequestActionsResponse | { "type": "call_grpc_request_action_request" } & CallGrpcRequestActionRequest | { "type": "get_template_function_summary_request" } & EmptyPayload | { "type": "get_template_function_summary_response" } & GetTemplateFunctionSummaryResponse | { "type": "get_template_function_config_request" } & GetTemplateFunctionConfigRequest | { "type": "get_template_function_config_response" } & GetTemplateFunctionConfigResponse | { "type": "call_template_function_request" } & CallTemplateFunctionRequest | { "type": "call_template_function_response" } & CallTemplateFunctionResponse | { "type": "get_http_authentication_summary_request" } & EmptyPayload | { "type": "get_http_authentication_summary_response" } & GetHttpAuthenticationSummaryResponse | { "type": "get_http_authentication_config_request" } & GetHttpAuthenticationConfigRequest | { "type": "get_http_authentication_config_response" } & GetHttpAuthenticationConfigResponse | { "type": "call_http_authentication_request" } & CallHttpAuthenticationRequest | { "type": "call_http_authentication_response" } & CallHttpAuthenticationResponse | { "type": "call_http_authentication_action_request" } & CallHttpAuthenticationActionRequest | { "type": "call_http_authentication_action_response" } & EmptyPayload | { "type": "copy_text_request" } & CopyTextRequest | { "type": "copy_text_response" } & EmptyPayload | { "type": "render_http_request_request" } & RenderHttpRequestRequest | { "type": "render_http_request_response" } & RenderHttpRequestResponse | { "type": "render_grpc_request_request" } & RenderGrpcRequestRequest | { "type": "render_grpc_request_response" } & RenderGrpcRequestResponse | { "type": "template_render_request" } & TemplateRenderRequest | { "type": "template_render_response" } & TemplateRenderResponse | { "type": "get_key_value_request" } & GetKeyValueRequest | { "type": "get_key_value_response" } & GetKeyValueResponse | { "type": "set_key_value_request" } & SetKeyValueRequest | { "type": "set_key_value_response" } & SetKeyValueResponse | { "type": "delete_key_value_request" } & DeleteKeyValueRequest | { "type": "delete_key_value_response" } & DeleteKeyValueResponse | { "type": "open_window_request" } & OpenWindowRequest | { "type": "window_navigate_event" } & WindowNavigateEvent | { "type": "window_close_event" } | { "type": "close_window_request" } & CloseWindowRequest | { "type": "open_external_url_request" } & OpenExternalUrlRequest | { "type": "open_external_url_response" } & EmptyPayload | { "type": "show_toast_request" } & ShowToastRequest | { "type": "show_toast_response" } & EmptyPayload | { "type": "prompt_text_request" } & PromptTextRequest | { "type": "prompt_text_response" } & PromptTextResponse | { "type": "prompt_form_request" } & PromptFormRequest | { "type": "prompt_form_response" } & PromptFormResponse | { "type": "window_info_request" } & WindowInfoRequest | { "type": "window_info_response" } & WindowInfoResponse | { "type": "list_open_workspaces_request" } & ListOpenWorkspacesRequest | { "type": "list_open_workspaces_response" } & ListOpenWorkspacesResponse | { "type": "get_http_request_by_id_request" } & GetHttpRequestByIdRequest | { "type": "get_http_request_by_id_response" } & GetHttpRequestByIdResponse | { "type": "find_http_responses_request" } & FindHttpResponsesRequest | { "type": "find_http_responses_response" } & FindHttpResponsesResponse | { "type": "list_http_requests_request" } & ListHttpRequestsRequest | { "type": "list_http_requests_response" } & ListHttpRequestsResponse | { "type": "list_folders_request" } & ListFoldersRequest | { "type": "list_folders_response" } & ListFoldersResponse | { "type": "upsert_model_request" } & UpsertModelRequest | { "type": "upsert_model_response" } & UpsertModelResponse | { "type": "delete_model_request" } & DeleteModelRequest | { "type": "delete_model_response" } & DeleteModelResponse | { "type": "get_themes_request" } & GetThemesRequest | { "type": "get_themes_response" } & GetThemesResponse | { "type": "empty_response" } & EmptyPayload | { "type": "error_response" } & ErrorResponse;
 
 export type JsonPrimitive = string | number | boolean | null;
 
@@ -468,13 +468,13 @@ export type ListHttpRequestsRequest = { folderId?: string, };
 
 export type ListHttpRequestsResponse = { httpRequests: Array<HttpRequest>, };
 
-export type ListWorkspacesRequest = Record<string, never>;
+export type ListOpenWorkspacesRequest = Record<string, never>;
 
-export type ListWorkspacesResponse = { workspaces: Array<WorkspaceInfo>, };
+export type ListOpenWorkspacesResponse = { workspaces: Array<WorkspaceInfo>, };
 
 export type OpenExternalUrlRequest = { url: string, };
 
-export type OpenWindowRequest = { url: string, 
+export type OpenWindowRequest = { url: string,
 /**
  * Label for the window. If not provided, a random one will be generated.
  */
@@ -486,15 +486,15 @@ export type PromptFormRequest = { id: string, title: string, description?: strin
 
 export type PromptFormResponse = { values: { [key in string]?: JsonPrimitive } | null, done?: boolean, };
 
-export type PromptTextRequest = { id: string, title: string, label: string, description?: string, defaultValue?: string, placeholder?: string, 
+export type PromptTextRequest = { id: string, title: string, label: string, description?: string, defaultValue?: string, placeholder?: string,
 /**
  * Text to add to the confirmation button
  */
-confirmText?: string, password?: boolean, 
+confirmText?: string, password?: boolean,
 /**
  * Text to add to the cancel button
  */
-cancelText?: string, 
+cancelText?: string,
 /**
  * Require the user to enter a non-empty value
  */
@@ -524,12 +524,12 @@ export type SetKeyValueResponse = {};
 
 export type ShowToastRequest = { message: string, color?: Color, icon?: Icon, timeout?: number, };
 
-export type TemplateFunction = { name: string, previewType?: TemplateFunctionPreviewType, description?: string, 
+export type TemplateFunction = { name: string, previewType?: TemplateFunctionPreviewType, description?: string,
 /**
  * Also support alternative names. This is useful for not breaking existing
  * tags when changing the `name` property
  */
-aliases?: Array<string>, args: Array<TemplateFunctionArg>, 
+aliases?: Array<string>, args: Array<TemplateFunctionArg>,
 /**
  * A list of arg names to show in the inline preview. If not provided, none will be shown (for privacy reasons).
  */
@@ -546,23 +546,23 @@ export type TemplateRenderRequest = { data: JsonValue, purpose: RenderPurpose, }
 
 export type TemplateRenderResponse = { data: JsonValue, };
 
-export type Theme = { 
+export type Theme = {
 /**
  * How the theme is identified. This should never be changed
  */
-id: string, 
+id: string,
 /**
  * The friendly name of the theme to be displayed to the user
  */
-label: string, 
+label: string,
 /**
  * Whether the theme will be used for dark or light appearance
  */
-dark: boolean, 
+dark: boolean,
 /**
  * The default top-level colors for the theme
  */
-base: ThemeComponentColors, 
+base: ThemeComponentColors,
 /**
  * Optionally override theme for individual UI components for more control
  */

@@ -6,6 +6,7 @@ use crate::models::HttpRequestIden::{
 use crate::util::{UpdateSource, generate_prefixed_id};
 use chrono::{NaiveDateTime, Utc};
 use rusqlite::Row;
+use schemars::JsonSchema;
 use sea_query::Order::Desc;
 use sea_query::{IntoColumnRef, IntoIden, IntoTableRef, Order, SimpleExpr, enum_def};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -73,7 +74,7 @@ pub struct ClientCertificate {
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub struct DnsOverride {
@@ -292,7 +293,7 @@ impl UpsertModelInfo for Settings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "workspaces")]
@@ -589,7 +590,7 @@ impl UpsertModelInfo for CookieJar {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "environments")]
@@ -610,6 +611,8 @@ pub struct Environment {
     pub base: bool,
     pub parent_model: String,
     pub parent_id: Option<String>,
+    /// Variables defined in this environment scope.
+    /// Child environments override parent variables by name.
     pub variables: Vec<EnvironmentVariable>,
     pub color: Option<String>,
     pub sort_priority: f64,
@@ -697,7 +700,7 @@ impl UpsertModelInfo for Environment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub struct EnvironmentVariable {
@@ -824,7 +827,7 @@ impl UpsertModelInfo for Folder {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub struct HttpRequestHeader {
@@ -837,20 +840,22 @@ pub struct HttpRequestHeader {
     pub id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub struct HttpUrlParameter {
     #[serde(default = "default_true")]
     #[ts(optional, as = "Option<bool>")]
     pub enabled: bool,
+    /// Colon-prefixed parameters are treated as path parameters if they match, like `/users/:id`
+    /// Other entries are appended as query parameters
     pub name: String,
     pub value: String,
     #[ts(optional, as = "Option<String>")]
     pub id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "http_requests")]
@@ -876,6 +881,7 @@ pub struct HttpRequest {
     pub name: String,
     pub sort_priority: f64,
     pub url: String,
+    /// URL parameters used for both path placeholders (`:id`) and query string entries.
     pub url_parameters: Vec<HttpUrlParameter>,
 }
 
@@ -1095,7 +1101,7 @@ impl Default for WebsocketMessageType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "websocket_requests")]
@@ -1117,6 +1123,7 @@ pub struct WebsocketRequest {
     pub name: String,
     pub sort_priority: f64,
     pub url: String,
+    /// URL parameters used for both path placeholders (`:id`) and query string entries.
     pub url_parameters: Vec<HttpUrlParameter>,
 }
 
@@ -1492,6 +1499,10 @@ pub enum HttpResponseEventData {
         url: String,
         status: u16,
         behavior: String,
+        #[serde(default)]
+        dropped_body: bool,
+        #[serde(default)]
+        dropped_headers: Vec<String>,
     },
     SendUrl {
         method: String,
@@ -1704,7 +1715,7 @@ impl UpsertModelInfo for GraphQlIntrospection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, JsonSchema, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "grpc_requests")]
@@ -1727,6 +1738,7 @@ pub struct GrpcRequest {
     pub name: String,
     pub service: Option<String>,
     pub sort_priority: f64,
+    /// Server URL (http for plaintext or https for secure)
     pub url: String,
 }
 
@@ -2066,6 +2078,46 @@ pub struct Plugin {
     pub directory: String,
     pub enabled: bool,
     pub url: Option<String>,
+    pub source: PluginSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum PluginSource {
+    Bundled,
+    Filesystem,
+    Registry,
+}
+
+impl FromStr for PluginSource {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "bundled" => Ok(Self::Bundled),
+            "filesystem" => Ok(Self::Filesystem),
+            "registry" => Ok(Self::Registry),
+            _ => Ok(Self::default()),
+        }
+    }
+}
+
+impl Display for PluginSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            PluginSource::Bundled => "bundled".to_string(),
+            PluginSource::Filesystem => "filesystem".to_string(),
+            PluginSource::Registry => "registry".to_string(),
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl Default for PluginSource {
+    fn default() -> Self {
+        Self::Filesystem
+    }
 }
 
 impl UpsertModelInfo for Plugin {
@@ -2101,6 +2153,7 @@ impl UpsertModelInfo for Plugin {
             (Directory, self.directory.into()),
             (Url, self.url.into()),
             (Enabled, self.enabled.into()),
+            (Source, self.source.to_string().into()),
         ])
     }
 
@@ -2111,6 +2164,7 @@ impl UpsertModelInfo for Plugin {
             PluginIden::Directory,
             PluginIden::Url,
             PluginIden::Enabled,
+            PluginIden::Source,
         ]
     }
 
@@ -2127,6 +2181,7 @@ impl UpsertModelInfo for Plugin {
             url: row.get("url")?,
             directory: row.get("directory")?,
             enabled: row.get("enabled")?,
+            source: PluginSource::from_str(row.get::<_, String>("source")?.as_str()).unwrap(),
         })
     }
 }

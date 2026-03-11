@@ -72,6 +72,10 @@ export const plugin: PluginDefinition = {
           name: 'header',
           label: 'Header Name',
           async dynamic(ctx, args) {
+            // Dynamic form config also runs during send-time rendering.
+            // Keep this preview-only to avoid side-effect request sends.
+            if (args.purpose !== 'preview') return null;
+
             const response = await getResponse(ctx, {
               requestId: String(args.values.request || ''),
               purpose: args.purpose,
@@ -146,6 +150,10 @@ export const plugin: PluginDefinition = {
           label: 'JSONPath or XPath',
           placeholder: '$.books[0].id or /books[0]/id',
           dynamic: async (ctx, args) => {
+            // Dynamic form config also runs during send-time rendering.
+            // Keep this preview-only to avoid side-effect request sends.
+            if (args.purpose !== 'preview') return null;
+
             const resp = await getResponse(ctx, {
               requestId: String(args.values.request || ''),
               purpose: 'preview',
@@ -309,7 +317,8 @@ async function getResponse(
     finalBehavior === 'always' ||
     (finalBehavior === BEHAVIOR_TTL && shouldSendExpired(response, ttl))
   ) {
-    // NOTE: Render inside this conditional, or we'll get infinite recursion (render->render->...)
+    // Explicitly render the request before send (instead of relying on send() to render) so that we can
+    // preserve the render purpose.
     const renderedHttpRequest = await ctx.httpRequest.render({ httpRequest, purpose });
     response = await ctx.httpRequest.send({ httpRequest: renderedHttpRequest });
   }
