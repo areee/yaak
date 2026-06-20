@@ -48,7 +48,7 @@ jobs:
           YAAK_VERSION: ${{ inputs.version }}
 
       - name: Build
-        run: npm run app-build -- --target aarch64-apple-darwin --config crates-tauri/yaak-app-client/tauri.conf.json --bundles app,dmg
+        run: npm run client:bundle -- --target aarch64-apple-darwin --bundles app,dmg
 
       - name: Show bundle outputs
         run: |
