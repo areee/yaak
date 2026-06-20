@@ -48,7 +48,7 @@ jobs:
           YAAK_VERSION: ${{ inputs.version }}
 
       - name: Build
-        run: npm run client:bundle -- --target aarch64-apple-darwin --bundles app,dmg
+        run: npm run client:build -- --target aarch64-apple-darwin --bundles app,dmg --no-sign
 
       - name: Show bundle outputs
         run: |
