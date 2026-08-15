@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (e.g. v2026.2.4)"
+        description: "Version (e.g. v2026.6.0)"
         required: true
-        default: "v2026.2.4"
+        default: "v2026.6.0"
 
 permissions:
   contents: read
@@ -17,14 +17,17 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout yaakapp/app
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "24"
+          cache: true
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
 
@@ -33,14 +36,20 @@ jobs:
           shared-key: ci
           cache-on-failure: true
 
-      - uses: arduino/setup-protoc@v3
+      - name: Install Protoc for plugin-runtime
+        uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: npm ci
+      - run: vp install
       - run: npm run bootstrap
         env:
           YAAK_TARGET_ARCH: "arm64"
+      - run: npm run lint
+      - name: Run JS Tests
+        run: vp test
+      - name: Run Rust Tests
+        run: cargo test --all --exclude yaak-cli --features yaak-app-client/wry
 
       - name: Set version
         run: npm run replace-version
