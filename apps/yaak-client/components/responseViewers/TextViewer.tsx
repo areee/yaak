@@ -1,14 +1,15 @@
-import classNames from "classnames";
 import type { ReactNode } from "react";
 import { Children, useCallback, useMemo } from "react";
-import { createGlobalState } from "react-use";
-import { useDebouncedValue } from "@yaakapp-internal/ui";
+import { Banner, HStack, Icon, InlineCode } from "@yaakapp-internal/ui";
 import { useFormatText } from "../../hooks/useFormatText";
+import type { ResponseFilterApi } from "../../hooks/useResponseFilter";
+import { Button } from "../core/Button";
 import type { EditorProps } from "../core/Editor/Editor";
 import { hyperlink } from "../core/Editor/hyperlink/extension";
 import { Editor } from "../core/Editor/LazyEditor";
 import { IconButton } from "../core/IconButton";
 import { Input } from "../core/Input";
+import { RecentFiltersDropdown } from "./RecentFiltersDropdown";
 
 const extraExtensions = [hyperlink];
 
@@ -16,56 +17,44 @@ interface Props {
   text: string;
   language: EditorProps["language"];
   stateKey: string | null;
-  filterStateKey?: string | null;
   pretty?: boolean;
   className?: string;
   footerActions?: ReactNode;
-  onFilter?: (filter: string) => {
+  filter?: ResponseFilterApi;
+  filterResult?: {
     data: string | null | undefined;
     isPending: boolean;
     error: boolean;
   };
 }
 
-const useFilterText = createGlobalState<Record<string, string | null>>({});
-
 export function TextViewer({
   language,
   text,
   stateKey,
-  filterStateKey,
   pretty,
   className,
   footerActions,
-  onFilter,
+  filter,
+  filterResult,
 }: Props) {
-  const filterKey = filterStateKey ?? stateKey;
-  const [filterTextMap, setFilterTextMap] = useFilterText();
-  const filterText = filterKey ? (filterTextMap[filterKey] ?? null) : null;
-  const debouncedFilterText = useDebouncedValue(filterText);
-  const setFilterText = useCallback(
-    (v: string | null) => {
-      if (!filterKey) return;
-      setFilterTextMap((m) => ({ ...m, [filterKey]: v }));
+  const canFilter =
+    filter != null && (language === "json" || language === "xml" || language === "html");
+  const isSearching = filter?.isSearching ?? false;
+  const appliedFilter = filter?.appliedFilter ?? null;
+  const resultError = filterResult?.error ?? false;
+
+  const handleFilterKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (filter == null) return;
+      if (e.key === "Escape") {
+        filter.toggleSearch();
+      } else if (e.key === "Enter" && filter.filterText != null) {
+        filter.applyFilter(filter.filterText);
+      }
     },
-    [filterKey, setFilterTextMap],
+    [filter],
   );
-
-  const isSearching = filterText != null;
-  const filteredResponse =
-    onFilter && debouncedFilterText
-      ? onFilter(debouncedFilterText)
-      : { data: null, isPending: false, error: false };
-
-  const toggleSearch = useCallback(() => {
-    if (isSearching) {
-      setFilterText(null);
-    } else {
-      setFilterText("");
-    }
-  }, [isSearching, setFilterText]);
-
-  const canFilter = onFilter && (language === "json" || language === "xml" || language === "html");
 
   const actions = useMemo<ReactNode[]>(() => {
     const nodes: ReactNode[] = isSearching ? [] : Children.toArray(footerActions);
@@ -76,8 +65,8 @@ export function TextViewer({
       nodes.push(
         <div key="input" className="w-full opacity-100!">
           <Input
-            key={filterKey ?? "filter"}
-            validate={!filteredResponse.error}
+            key={filter.stateKey ?? "filter"}
+            validate={!resultError}
             hideLabel
             autoFocus
             containerClassName="bg-surface"
@@ -85,39 +74,62 @@ export function TextViewer({
             placeholder={language === "json" ? "JSONPath expression" : "XPath expression"}
             label="Filter expression"
             name="filter"
-            defaultValue={filterText}
-            onKeyDown={(e) => e.key === "Escape" && toggleSearch()}
-            onChange={setFilterText}
-            stateKey={filterKey ? `filter.${filterKey}` : null}
+            defaultValue={filter.filterText}
+            forceUpdateKey={filter.filterUpdateKey}
+            onKeyDown={handleFilterKeyDown}
+            onChange={filter.setFilterText}
+            stateKey={filter.stateKey ? `filter.${filter.stateKey}` : null}
+            leftSlot={
+              <div className="py-0.5 flex">
+                <RecentFiltersDropdown
+                  recentFilters={filter.recentFilters}
+                  activeFilter={filter.appliedFilter}
+                  onSelect={filter.replaceFilter}
+                  onRemove={filter.removeRecentFilter}
+                  onTogglePin={filter.togglePinRecentFilter}
+                  onClear={filter.clearRecentFilters}
+                />
+              </div>
+            }
+            rightSlot={
+              <div className="py-0.5 flex">
+                <IconButton
+                  size="xs"
+                  icon="x"
+                  title="Close filter"
+                  iconColor="secondary"
+                  onClick={filter.toggleSearch}
+                  className="w-8 mr-0.5 h-auto!"
+                />
+              </div>
+            }
           />
         </div>,
       );
+    } else {
+      nodes.push(
+        <IconButton
+          key="icon"
+          size="sm"
+          isLoading={filterResult?.isPending ?? false}
+          icon="filter"
+          title="Filter response"
+          onClick={filter.toggleSearch}
+          className="border border-border-subtle!"
+        />,
+      );
     }
-
-    nodes.push(
-      <IconButton
-        key="icon"
-        size="sm"
-        isLoading={filteredResponse.isPending}
-        icon={isSearching ? "x" : "filter"}
-        title={isSearching ? "Close filter" : "Filter response"}
-        onClick={toggleSearch}
-        className={classNames("border border-border-subtle!", isSearching && "opacity-100!")}
-      />,
-    );
 
     return nodes;
   }, [
     canFilter,
     footerActions,
-    filterKey,
-    filterText,
-    filteredResponse.error,
-    filteredResponse.isPending,
+    filter,
+    filterResult?.isPending,
+    resultError,
     isSearching,
     language,
-    setFilterText,
-    toggleSearch,
+    handleFilterKeyDown,
   ]);
 
   const formattedBody = useFormatText({ text, language, pretty: pretty ?? false });
@@ -126,11 +138,11 @@ export function TextViewer({
   }
 
   let body: string;
-  if (isSearching && filterText?.length > 0) {
-    if (filteredResponse.error) {
+  if (appliedFilter) {
+    if (resultError) {
       body = "";
     } else {
-      body = filteredResponse.data != null ? filteredResponse.data : "";
+      body = filterResult?.data != null ? filterResult.data : "";
     }
   } else {
     body = formattedBody;
@@ -143,15 +155,61 @@ export function TextViewer({
   }
 
   return (
-    <Editor
-      readOnly
-      className={className}
-      defaultValue={body}
-      language={language}
-      actions={actions}
-      extraExtensions={extraExtensions}
-      stateKey={stateKey}
-    />
+    <div className="grid grid-rows-[auto_minmax(0,1fr)] h-full w-full">
+      {appliedFilter && filter != null ? (
+        <AppliedFilterBar
+          filter={appliedFilter}
+          error={resultError}
+          onClear={() => filter.replaceFilter("")}
+        />
+      ) : (
+        <span />
+      )}
+      <Editor
+        readOnly
+        className={className}
+        defaultValue={body}
+        language={language}
+        actions={actions}
+        extraExtensions={extraExtensions}
+        stateKey={stateKey}
+      />
+    </div>
+  );
+}
+
+/**
+ * Shows what's actually filtering the body, which the filter box below can't convey
+ * once it holds an edited expression that hasn't been applied yet.
+ */
+function AppliedFilterBar({
+  filter,
+  error,
+  onClear,
+}: {
+  filter: string;
+  error: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <Banner color={error ? "danger" : "info"} className="py-1! mb-2! text-sm">
+      <HStack space={2} className="min-w-0">
+        <Icon icon="filter" size="xs" className="shrink-0 opacity-70" />
+        <span className="truncate min-w-0" title={filter}>
+          Response filtered by <InlineCode>{filter}</InlineCode>
+          {error && " (invalid expression)"}
+        </span>
+        <Button
+          size="2xs"
+          variant="border"
+          color={error ? "danger" : "info"}
+          className="ml-auto shrink-0"
+          onClick={onClear}
+        >
+          Clear
+        </Button>
+      </HStack>
+    </Banner>
   );
 }
 

@@ -1,9 +1,8 @@
 import "react-pdf/dist/Page/TextLayer.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import "./PdfViewer.css";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Document, Page } from "react-pdf";
 import { useContainerSize } from "@yaakapp-internal/ui";
 import { fireAndForget } from "../../lib/fireAndForget";
@@ -18,7 +17,8 @@ fireAndForget(
 );
 
 interface Props {
-  bodyPath?: string;
+  /** A URL for the body the host already stored. */
+  bodyUrl?: string;
   data?: Uint8Array;
 }
 
@@ -27,29 +27,35 @@ const options = {
   standardFontDataUrl: "/standard_fonts/",
 };
 
-export function PdfViewer({ bodyPath, data }: Props) {
+export function PdfViewer({ bodyUrl, data }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState<number>();
-  const [src, setSrc] = useState<string | { data: Uint8Array }>();
 
   const { width: containerWidth } = useContainerSize(containerRef);
 
-  useEffect(() => {
-    if (bodyPath) {
-      setSrc(convertFileSrc(bodyPath));
-    } else if (data) {
+  // During render, not in an effect: an effect leaves the first paint with no file, and
+  // `Document` renders its "Failed to load PDF file" state for that frame before recovering
+  const src = useMemo(() => {
+    if (bodyUrl) {
+      return bodyUrl;
+    }
+    if (data) {
       // Create a copy to avoid "Buffer is already detached" errors
       // This happens when the ArrayBuffer is transferred/detached elsewhere
-      const dataCopy = new Uint8Array(data);
-      setSrc({ data: dataCopy });
-    } else {
-      setSrc(undefined);
+      return { data: new Uint8Array(data) };
     }
-  }, [bodyPath, data]);
+    return undefined;
+  }, [bodyUrl, data]);
 
   const onDocumentLoadSuccess = ({ numPages: nextNumPages }: PDFDocumentProxy): void => {
     setNumPages(nextNumPages);
   };
+
+  // Nothing to show yet, rather than the failure state `Document` renders for an empty file
+  if (src == null) {
+    return null;
+  }
+
   return (
     <div ref={containerRef} className="w-full h-full overflow-y-auto">
       <Document

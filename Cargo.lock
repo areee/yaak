@@ -10982,6 +10982,7 @@ dependencies = [
 name = "yaak-app-client"
 version = "0.0.0"
 dependencies = [
+ "base64 0.22.1",
  "charset",
  "chrono",
  "cookie",
@@ -11033,6 +11034,8 @@ dependencies = [
  "yaak-mac-window",
  "yaak-models",
  "yaak-plugins",
+ "yaak-rpc",
+ "yaak-rpc-schema",
  "yaak-sse",
  "yaak-sync",
  "yaak-system-appearance",
@@ -11200,6 +11203,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-reflection",
+ "ts-rs",
  "uuid",
  "yaak-common",
  "yaak-tls",
@@ -11225,6 +11229,7 @@ dependencies = [
  "reqwest 0.12.20",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.17",
  "tokio",
  "tokio-util",
@@ -11369,6 +11374,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "yaak-rpc-schema"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "ts-rs",
+ "yaak-git",
+ "yaak-grpc",
+ "yaak-models",
+ "yaak-plugins",
+ "yaak-sse",
+ "yaak-sync",
+ "yaak-templates",
+ "yaak-ws",
+]
+
+[[package]]
 name = "yaak-sse"
 version = "0.1.0"
 dependencies = [
@@ -11433,6 +11454,7 @@ version = "0.1.0"
 dependencies = [
  "log 0.4.29",
  "p12",
+ "pem",
  "rustls",
  "rustls-pemfile",
  "rustls-platform-verifier",
@@ -11440,6 +11462,7 @@ dependencies = [
  "thiserror 2.0.17",
  "url",
  "yaak-models",
+ "yasna",
 ]
 
 [[package]]
