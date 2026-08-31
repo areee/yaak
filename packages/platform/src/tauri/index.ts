@@ -49,6 +49,7 @@ function toSyncUnsubscribe(pending: Promise<Unsubscribe>): Unsubscribe {
 }
 
 const ALL_CAPABILITIES: PlatformCapabilities = {
+  httpSending: true,
   grpc: true,
   websocket: true,
   git: true,
@@ -58,6 +59,8 @@ const ALL_CAPABILITIES: PlatformCapabilities = {
   localFiles: true,
   timeline: true,
   multiWindow: true,
+  windowChrome: true,
+  interfaceZoom: true,
   plugins: true,
   encryption: true,
   updater: true,
