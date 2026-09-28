@@ -348,17 +348,19 @@ async fn install_from_directory(context: &CliContext, source: &str) -> CommandRe
     ui::info(&format!("Installing plugin from directory {}", plugin_dir.display()));
 
     let plugin = context
-        .db()
-        .upsert_plugin(
-            &Plugin {
-                directory: plugin_dir_str,
-                url: None,
-                enabled: true,
-                source: PluginSource::Filesystem,
-                ..Default::default()
-            },
-            &UpdateSource::Background,
-        )
+        .query_manager()
+        .with_tx(|tx| {
+            tx.upsert_plugin(
+                &Plugin {
+                    directory: plugin_dir_str,
+                    url: None,
+                    enabled: true,
+                    source: PluginSource::Filesystem,
+                    ..Default::default()
+                },
+                &UpdateSource::Background,
+            )
+        })
         .map_err(|err| format!("Failed to save plugin in database: {err}"))?;
 
     let plugin_context = PluginContext::new(Some("cli".to_string()), None);
@@ -883,11 +885,8 @@ mod tests {
         fs::create_dir_all(root.join("build")).expect("create build");
         fs::create_dir_all(root.join("vendor")).expect("create vendor");
         fs::write(root.join("vendor/core_bg.wasm"), "asset").expect("write asset");
-        fs::write(
-            root.join("package.json"),
-            r#"{"yaak":{"buildAssets":["vendor/core_bg.wasm"]}}"#,
-        )
-        .expect("write package.json");
+        fs::write(root.join("package.json"), r#"{"yaak":{"buildAssets":["vendor/core_bg.wasm"]}}"#)
+            .expect("write package.json");
 
         copy_build_assets(root).expect("copy assets");
 

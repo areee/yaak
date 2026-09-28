@@ -21,18 +21,18 @@ use yaak_git::{
 use yaak_grpc::ServiceDefinition;
 use yaak_models::models::{
     AnyModel, GraphQlIntrospection, GrpcEvent, HttpRequest, HttpRequestHeader, HttpResponse,
-    HttpResponseEvent, Plugin, Settings, WebsocketConnection, WebsocketEvent, WorkspaceMeta,
+    HttpResponseEvent, ImportSource, Plugin, Settings, WebsocketConnection, WebsocketEvent,
+    WorkspaceMeta,
 };
-use yaak_models::util::BatchUpsertResult;
+use yaak_models::util::{BatchUpsertResult, ImportDestination, ImportPlan};
 use yaak_plugins::api::{PluginNameVersion, PluginSearchResponse, PluginUpdatesResponse};
 use yaak_plugins::events::{
     CallFolderActionRequest, CallGrpcRequestActionRequest, CallHttpRequestActionRequest,
     CallWebsocketRequestActionRequest, CallWorkspaceActionRequest, FilterResponse,
-    GetFolderActionsResponse, GetGrpcRequestActionsResponse,
-    GetHttpAuthenticationConfigResponse, GetHttpAuthenticationSummaryResponse,
-    GetHttpRequestActionsResponse, GetTemplateFunctionConfigResponse,
-    GetTemplateFunctionSummaryResponse, GetThemesResponse, GetWebsocketRequestActionsResponse,
-    GetWorkspaceActionsResponse, JsonPrimitive, RenderPurpose,
+    GetFolderActionsResponse, GetGrpcRequestActionsResponse, GetHttpAuthenticationConfigResponse,
+    GetHttpAuthenticationSummaryResponse, GetHttpRequestActionsResponse,
+    GetTemplateFunctionConfigResponse, GetTemplateFunctionSummaryResponse, GetThemesResponse,
+    GetWebsocketRequestActionsResponse, GetWorkspaceActionsResponse, JsonPrimitive, RenderPurpose,
 };
 use yaak_plugins::plugin_meta::PluginMetadata;
 use yaak_sse::sse::ServerSentEvent;
@@ -228,14 +228,43 @@ pub struct CmdGetHttpResponseEventsReq {
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "gen_rpc.ts")]
 pub struct CmdImportDataReq {
-    pub file_path: String,
+    pub file_paths: Vec<String>,
+    pub urls: Vec<String>,
+    pub destination: ImportDestination,
 }
 
 #[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "gen_rpc.ts")]
-pub struct CmdImportUrlReq {
-    pub url: String,
+pub struct CmdCommitImportReq {
+    pub plan: ImportPlan,
+}
+
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_rpc.ts")]
+pub struct CmdListImportSourcesReq {
+    pub workspace_id: String,
+}
+
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_rpc.ts")]
+pub struct CmdImportSourcesForOriginReq {
+    #[ts(optional)]
+    pub file_path: Option<String>,
+    #[ts(optional)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_rpc.ts")]
+pub struct CmdDetectImportSourceReq {
+    #[ts(optional)]
+    pub file_path: Option<String>,
+    #[ts(optional)]
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -341,10 +370,13 @@ pub struct CmdCurlToRequestReq {
 }
 
 #[derive(Debug, Deserialize, TS)]
+#[ts(export, export_to = "gen_rpc.ts")]
+pub struct CmdCreateExampleWorkspaceReq {}
+
+#[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "gen_rpc.ts")]
 pub struct CmdExportDataReq {
-    pub export_path: String,
     pub workspace_ids: Vec<String>,
     pub include_private_environments: bool,
 }
@@ -909,8 +941,11 @@ macro_rules! with_commands {
     cmd_http_request_body(CmdHttpRequestBodyReq) -> Option<Vec<u8>>,
     cmd_get_sse_events(CmdGetSseEventsReq) -> Vec<ServerSentEvent>,
     cmd_get_http_response_events(CmdGetHttpResponseEventsReq) -> Vec<HttpResponseEvent>,
-    cmd_import_data(CmdImportDataReq) -> BatchUpsertResult,
-    cmd_import_url(CmdImportUrlReq) -> BatchUpsertResult,
+    cmd_import_data(CmdImportDataReq) -> ImportPlan,
+    cmd_commit_import(CmdCommitImportReq) -> BatchUpsertResult,
+    cmd_list_import_sources(CmdListImportSourcesReq) -> Vec<ImportSource>,
+    cmd_import_sources_for_origin(CmdImportSourcesForOriginReq) -> Vec<ImportSource>,
+    cmd_detect_import_source(CmdDetectImportSourceReq) -> String,
     cmd_http_request_actions(CmdHttpRequestActionsReq) -> Vec<GetHttpRequestActionsResponse>,
     cmd_websocket_request_actions(CmdWebsocketRequestActionsReq) -> Vec<GetWebsocketRequestActionsResponse>,
     cmd_call_websocket_request_action(CmdCallWebsocketRequestActionReq) -> (),
@@ -927,7 +962,8 @@ macro_rules! with_commands {
     cmd_call_grpc_request_action(CmdCallGrpcRequestActionReq) -> (),
     cmd_call_http_authentication_action(CmdCallHttpAuthenticationActionReq) -> (),
     cmd_curl_to_request(CmdCurlToRequestReq) -> HttpRequest,
-    cmd_export_data(CmdExportDataReq) -> (),
+    cmd_export_data(CmdExportDataReq) -> String,
+    cmd_create_example_workspace(CmdCreateExampleWorkspaceReq) -> BatchUpsertResult,
     cmd_save_base64_to_binary(CmdSaveBase64ToBinaryReq) -> (),
     cmd_save_response(CmdSaveResponseReq) -> (),
     cmd_send_http_request(CmdSendHttpRequestReq) -> HttpResponse,

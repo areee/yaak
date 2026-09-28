@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use ts_rs::TS;
 use yaak_models::models::{
     AnyModel, Environment, Folder, GrpcRequest, HttpRequest, HttpResponse, WebsocketRequest,
@@ -240,14 +240,36 @@ pub struct ReloadResponse {
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_events.ts")]
 pub struct ImportRequest {
+    /// Kept for text-only importers and older runtimes.
     pub content: String,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<ImportFileSource>,
+}
+
+/// Transport descriptor; plugins see a scoped ImportFiles API, not this representation.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", tag = "type")]
+#[ts(export, export_to = "gen_events.ts")]
+pub enum ImportFileSource {
+    File { name: String, base64: String },
+    Directory { path: String },
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_events.ts")]
 pub struct ImportResponse {
+    /// Display name of the importer that recognized the input.
+    pub importer: String,
     pub resources: ImportResources,
+
+    /// Identifies the same source element across re-parses, keyed by the IDs in `resources`.
+    ///
+    /// Must come from the document, never from anything the user can rename in Yaak. Only set
+    /// for formats that carry their own identifiers; the host derives the rest.
+    #[ts(optional)]
+    pub source_keys: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
@@ -287,6 +309,36 @@ pub struct ExportHttpRequestResponse {
 pub struct SendHttpRequestRequest {
     #[ts(type = "Partial<HttpRequest>")]
     pub http_request: HttpRequest,
+    /// Override the environment for this send without changing the active selection.
+    /// When omitted, use the host's active environment.
+    #[ts(optional)]
+    pub environment_id: Option<String>,
+}
+
+#[cfg(test)]
+mod send_http_request_tests {
+    use super::SendHttpRequestRequest;
+    use serde_json::json;
+
+    #[test]
+    fn environment_override_survives_the_plugin_wire_format() {
+        let request: SendHttpRequestRequest = serde_json::from_value(json!({
+            "httpRequest": { "id": "rq_test" }, "environmentId": "ev_staging"
+        }))
+        .unwrap();
+        assert_eq!(request.environment_id.as_deref(), Some("ev_staging"));
+        assert_eq!(serde_json::to_value(request).unwrap()["environmentId"], "ev_staging");
+    }
+
+    #[test]
+    fn older_plugins_can_omit_the_environment_override() {
+        let request: SendHttpRequestRequest = serde_json::from_value(json!({
+            "httpRequest": { "id": "rq_test" }
+        }))
+        .unwrap();
+        assert_eq!(request.environment_id, None);
+        assert_eq!(request.http_request.id, "rq_test");
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]

@@ -12,6 +12,7 @@ export type AnyModel =
   | HttpRequest
   | HttpResponse
   | HttpResponseEvent
+  | ImportSource
   | KeyValue
   | Plugin
   | Settings
@@ -335,6 +336,35 @@ export type HttpUrlParameter = {
 };
 
 export type HttpVersion = "auto" | "http1" | "http2";
+
+export type ImportSource = {
+  model: "import_source";
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  workspaceId: string;
+  importer: string;
+  origin: string;
+  originLabel: string;
+  lastImportedAt: string;
+};
+
+export type ImportSourceResource = {
+  model: "import_source_resource";
+  createdAt: string;
+  updatedAt: string;
+  importSourceId: string;
+  sourceKey: string;
+  modelType: string;
+  /**
+   * `None` once the user has decided not to import this key
+   */
+  modelId?: string;
+  /**
+   * Hash of the resource as last applied or decided from the source, if one was recorded
+   */
+  contentHash?: string;
+};
 
 export type InheritedBoolSetting = { enabled?: boolean; value: boolean };
 

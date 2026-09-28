@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, Runtime, State, WebviewWindow};
 use tokio::sync::{Mutex, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use url::Url;
+use yaak_commands::resolve::resolve_websocket_request;
 use yaak_crypto::manager::EncryptionManager;
 use yaak_http::cookies::CookieStore;
 use yaak_http::path_placeholders::apply_path_placeholders;
@@ -22,12 +23,10 @@ use yaak_models::models::{
 };
 use yaak_models::util::UpdateSource;
 use yaak_plugins::events::{CallHttpAuthenticationRequest, HttpHeader, RenderPurpose};
-use yaak_plugins::manager::PluginManager;
 use yaak_plugins::template_callback::PluginTemplateCallback;
 use yaak_templates::strip_json_comments::maybe_strip_json_comments;
 use yaak_templates::{RenderErrorBehavior, RenderOptions};
 use yaak_tls::find_client_certificate;
-use yaak_commands::resolve::resolve_websocket_request;
 use yaak_ws::{WebsocketManager, render_websocket_request};
 
 pub async fn cmd_ws_send<R: Runtime>(
@@ -44,18 +43,20 @@ pub async fn cmd_ws_send<R: Runtime>(
     {
         Ok(connection) => Ok(connection),
         Err(e) => {
-            app_handle.db().upsert_websocket_event(
-                &WebsocketEvent {
-                    connection_id: connection.id.clone(),
-                    request_id: connection.request_id.clone(),
-                    workspace_id: connection.workspace_id.clone(),
-                    is_server: false,
-                    message_type: WebsocketEventType::Error,
-                    message: e.to_string().into(),
-                    ..Default::default()
-                },
-                &UpdateSource::from_window_label(window.label()),
-            )?;
+            app_handle.with_tx(|tx| {
+                tx.upsert_websocket_event(
+                    &WebsocketEvent {
+                        connection_id: connection.id.clone(),
+                        request_id: connection.request_id.clone(),
+                        workspace_id: connection.workspace_id.clone(),
+                        is_server: false,
+                        message_type: WebsocketEventType::Error,
+                        message: e.to_string().into(),
+                        ..Default::default()
+                    },
+                    &UpdateSource::from_window_label(window.label()),
+                )
+            })?;
 
             Ok(connection)
         }
@@ -77,7 +78,7 @@ async fn send_websocket_message<R: Runtime>(
     )?;
     let (resolved_request, _auth_context_id) =
         resolve_websocket_request(&window.db(), &unrendered_request)?;
-    let plugin_manager = Arc::new((*app_handle.state::<PluginManager>()).clone());
+    let plugin_manager = Arc::new(crate::plugins_ext::plugin_manager(app_handle).await?);
     let encryption_manager = Arc::new((*app_handle.state::<EncryptionManager>()).clone());
     let request = render_websocket_request(
         &resolved_request,
@@ -97,18 +98,20 @@ async fn send_websocket_message<R: Runtime>(
     let mut ws_manager = ws_manager.lock().await;
     ws_manager.send(&connection.id, Message::Text(message.clone().into())).await?;
 
-    app_handle.db().upsert_websocket_event(
-        &WebsocketEvent {
-            connection_id: connection.id.clone(),
-            request_id: request.id.clone(),
-            workspace_id: connection.workspace_id.clone(),
-            is_server: false,
-            message_type: WebsocketEventType::Text,
-            message: message.into(),
-            ..Default::default()
-        },
-        &UpdateSource::from_window_label(window.label()),
-    )?;
+    app_handle.with_tx(|tx| {
+        tx.upsert_websocket_event(
+            &WebsocketEvent {
+                connection_id: connection.id.clone(),
+                request_id: request.id.clone(),
+                workspace_id: connection.workspace_id.clone(),
+                is_server: false,
+                message_type: WebsocketEventType::Text,
+                message: message.into(),
+                ..Default::default()
+            },
+            &UpdateSource::from_window_label(window.label()),
+        )
+    })?;
 
     Ok(connection.clone())
 }
@@ -119,14 +122,13 @@ pub async fn cmd_ws_close<R: Runtime>(
     window: WebviewWindow<R>,
     ws_manager: State<'_, Mutex<WebsocketManager>>,
 ) -> Result<WebsocketConnection> {
-    let connection = {
-        let db = app_handle.db();
-        let connection = db.get_websocket_connection(connection_id)?;
-        db.upsert_websocket_connection(
+    let connection = app_handle.with_tx(|tx| {
+        let connection = tx.get_websocket_connection(connection_id)?;
+        tx.upsert_websocket_connection(
             &WebsocketConnection { state: WebsocketConnectionState::Closing, ..connection },
             &UpdateSource::from_window_label(window.label()),
-        )?
-    };
+        )
+    })?;
 
     let mut ws_manager = ws_manager.lock().await;
     if let Err(e) = ws_manager.close(&connection.id).await {
@@ -142,7 +144,6 @@ pub async fn cmd_ws_connect<R: Runtime>(
     cookie_jar_id: Option<&str>,
     app_handle: AppHandle<R>,
     window: WebviewWindow<R>,
-    _plugin_manager: State<'_, PluginManager>,
     ws_manager: State<'_, Mutex<WebsocketManager>>,
 ) -> Result<WebsocketConnection> {
     let unrendered_request = app_handle.db().get_websocket_request(request_id)?;
@@ -156,7 +157,7 @@ pub async fn cmd_ws_connect<R: Runtime>(
     let settings = app_handle.db().get_settings();
     let (resolved_request, auth_context_id) =
         resolve_websocket_request(&window.db(), &unrendered_request)?;
-    let plugin_manager = Arc::new((*app_handle.state::<PluginManager>()).clone());
+    let plugin_manager = Arc::new(crate::plugins_ext::plugin_manager(&app_handle).await?);
     let encryption_manager = Arc::new((*app_handle.state::<EncryptionManager>()).clone());
     let request = render_websocket_request(
         &resolved_request,
@@ -171,14 +172,16 @@ pub async fn cmd_ws_connect<R: Runtime>(
     )
     .await?;
 
-    let connection = app_handle.db().upsert_websocket_connection(
-        &WebsocketConnection {
-            workspace_id: request.workspace_id.clone(),
-            request_id: request_id.to_string(),
-            ..Default::default()
-        },
-        &UpdateSource::from_window_label(window.label()),
-    )?;
+    let connection = app_handle.with_tx(|tx| {
+        tx.upsert_websocket_connection(
+            &WebsocketConnection {
+                workspace_id: request.workspace_id.clone(),
+                request_id: request_id.to_string(),
+                ..Default::default()
+            },
+            &UpdateSource::from_window_label(window.label()),
+        )
+    })?;
 
     let (mut url, url_parameters) = apply_path_placeholders(&request.url, &request.url_parameters);
     if !url.starts_with("ws://") && !url.starts_with("wss://") {
@@ -189,14 +192,16 @@ pub async fn cmd_ws_connect<R: Runtime>(
     let mut url = match Url::parse(&url) {
         Ok(url) => url,
         Err(e) => {
-            return Ok(app_handle.db().upsert_websocket_connection(
-                &WebsocketConnection {
-                    error: Some(format!("Failed to parse URL {}", e.to_string())),
-                    state: WebsocketConnectionState::Closed,
-                    ..connection
-                },
-                &UpdateSource::from_window_label(window.label()),
-            )?);
+            return Ok(app_handle.with_tx(|tx| {
+                tx.upsert_websocket_connection(
+                    &WebsocketConnection {
+                        error: Some(format!("Failed to parse URL {}", e.to_string())),
+                        state: WebsocketConnectionState::Closed,
+                        ..connection
+                    },
+                    &UpdateSource::from_window_label(window.label()),
+                )
+            })?);
         }
     };
 
@@ -323,28 +328,32 @@ pub async fn cmd_ws_connect<R: Runtime>(
     {
         Ok(r) => r,
         Err(e) => {
-            return Ok(app_handle.db().upsert_websocket_connection(
-                &WebsocketConnection {
-                    error: Some(e.to_string()),
-                    state: WebsocketConnectionState::Closed,
-                    ..connection
-                },
-                &UpdateSource::from_window_label(window.label()),
-            )?);
+            return Ok(app_handle.with_tx(|tx| {
+                tx.upsert_websocket_connection(
+                    &WebsocketConnection {
+                        error: Some(e.to_string()),
+                        state: WebsocketConnectionState::Closed,
+                        ..connection
+                    },
+                    &UpdateSource::from_window_label(window.label()),
+                )
+            })?);
         }
     };
 
-    app_handle.db().upsert_websocket_event(
-        &WebsocketEvent {
-            connection_id: connection.id.clone(),
-            request_id: request.id.clone(),
-            workspace_id: connection.workspace_id.clone(),
-            is_server: false,
-            message_type: WebsocketEventType::Open,
-            ..Default::default()
-        },
-        &UpdateSource::from_window_label(window.label()),
-    )?;
+    app_handle.with_tx(|tx| {
+        tx.upsert_websocket_event(
+            &WebsocketEvent {
+                connection_id: connection.id.clone(),
+                request_id: request.id.clone(),
+                workspace_id: connection.workspace_id.clone(),
+                is_server: false,
+                message_type: WebsocketEventType::Open,
+                ..Default::default()
+            },
+            &UpdateSource::from_window_label(window.label()),
+        )
+    })?;
 
     let response_headers = response
         .headers()
@@ -368,20 +377,22 @@ pub async fn cmd_ws_connect<R: Runtime>(
         if !set_cookie_headers.is_empty() {
             store.store_cookies_from_response(&convert_ws_url_to_http(&url), &set_cookie_headers);
             cookie_jar.cookies = store.get_all_cookies();
-            app_handle.db().upsert_cookie_jar(cookie_jar, &UpdateSource::Background)?;
+            app_handle.with_tx(|tx| tx.upsert_cookie_jar(cookie_jar, &UpdateSource::Background))?;
         }
     }
 
-    let connection = app_handle.db().upsert_websocket_connection(
-        &WebsocketConnection {
-            state: WebsocketConnectionState::Connected,
-            headers: response_headers,
-            status: response.status().as_u16() as i32,
-            url: request.url.clone(),
-            ..connection
-        },
-        &UpdateSource::from_window_label(window.label()),
-    )?;
+    let connection = app_handle.with_tx(|tx| {
+        tx.upsert_websocket_connection(
+            &WebsocketConnection {
+                state: WebsocketConnectionState::Connected,
+                headers: response_headers,
+                status: response.status().as_u16() as i32,
+                url: request.url.clone(),
+                ..connection
+            },
+            &UpdateSource::from_window_label(window.label()),
+        )
+    })?;
 
     {
         let connection_id = connection.id.clone();
@@ -397,64 +408,66 @@ pub async fn cmd_ws_connect<R: Runtime>(
                 }
 
                 app_handle
-                    .db()
-                    .upsert_websocket_event(
-                        &WebsocketEvent {
-                            connection_id: connection_id.clone(),
-                            request_id: request_id.clone(),
-                            workspace_id: workspace_id.clone(),
-                            is_server: true,
-                            message_type: match message {
-                                Message::Text(_) => WebsocketEventType::Text,
-                                Message::Binary(_) => WebsocketEventType::Binary,
-                                Message::Ping(_) => WebsocketEventType::Ping,
-                                Message::Pong(_) => WebsocketEventType::Pong,
-                                Message::Close(_) => WebsocketEventType::Close,
-                                // Raw frame will never happen during a read
-                                Message::Frame(_) => WebsocketEventType::Frame,
+                    .with_tx(|tx| {
+                        tx.upsert_websocket_event(
+                            &WebsocketEvent {
+                                connection_id: connection_id.clone(),
+                                request_id: request_id.clone(),
+                                workspace_id: workspace_id.clone(),
+                                is_server: true,
+                                message_type: match message {
+                                    Message::Text(_) => WebsocketEventType::Text,
+                                    Message::Binary(_) => WebsocketEventType::Binary,
+                                    Message::Ping(_) => WebsocketEventType::Ping,
+                                    Message::Pong(_) => WebsocketEventType::Pong,
+                                    Message::Close(_) => WebsocketEventType::Close,
+                                    // Raw frame will never happen during a read
+                                    Message::Frame(_) => WebsocketEventType::Frame,
+                                },
+                                message: message.into_data().into(),
+                                ..Default::default()
                             },
-                            message: message.into_data().into(),
-                            ..Default::default()
-                        },
-                        &UpdateSource::from_window_label(&window_label),
-                    )
+                            &UpdateSource::from_window_label(&window_label),
+                        )
+                    })
                     .unwrap();
             }
             info!("Websocket connection closed");
             if !has_written_close {
                 app_handle
-                    .db()
-                    .upsert_websocket_event(
-                        &WebsocketEvent {
-                            connection_id: connection_id.clone(),
-                            request_id: request_id.clone(),
-                            workspace_id: workspace_id.clone(),
-                            is_server: true,
-                            message_type: WebsocketEventType::Close,
-                            ..Default::default()
-                        },
-                        &UpdateSource::from_window_label(&window_label),
-                    )
+                    .with_tx(|tx| {
+                        tx.upsert_websocket_event(
+                            &WebsocketEvent {
+                                connection_id: connection_id.clone(),
+                                request_id: request_id.clone(),
+                                workspace_id: workspace_id.clone(),
+                                is_server: true,
+                                message_type: WebsocketEventType::Close,
+                                ..Default::default()
+                            },
+                            &UpdateSource::from_window_label(&window_label),
+                        )
+                    })
                     .unwrap();
             }
             app_handle
-                .db()
-                .upsert_websocket_connection(
-                    &WebsocketConnection {
-                        workspace_id: request.workspace_id.clone(),
-                        request_id: request_id.to_string(),
-                        state: WebsocketConnectionState::Closed,
-                        ..connection
-                    },
-                    &UpdateSource::from_window_label(&window_label),
-                )
+                .with_tx(|tx| {
+                    tx.upsert_websocket_connection(
+                        &WebsocketConnection {
+                            workspace_id: request.workspace_id.clone(),
+                            request_id: request_id.to_string(),
+                            state: WebsocketConnectionState::Closed,
+                            ..connection
+                        },
+                        &UpdateSource::from_window_label(&window_label),
+                    )
+                })
                 .unwrap();
         });
     }
 
     Ok(connection)
 }
-
 
 /// Convert WS URL to HTTP URL for cookie filtering
 /// WebSocket upgrade requests are HTTP requests initially, so HttpOnly cookies should apply

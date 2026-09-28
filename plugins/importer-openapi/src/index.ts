@@ -5,6 +5,7 @@ import type {
   HttpRequest,
   HttpRequestHeader,
   HttpUrlParameter,
+  ImportSource,
   PartialImportResources,
   PluginDefinition,
   Workspace,
@@ -46,8 +47,9 @@ export const plugin: PluginDefinition = {
   importer: {
     name: "OpenAPI",
     description: "Import OpenAPI collections",
-    onImport(_ctx: Context, args: { text: string }) {
-      return convertOpenApi(args.text);
+    onImportSource(_ctx: Context, { source }: { source: ImportSource }) {
+      if (source.type !== "text") return null;
+      return convertOpenApi(source.text);
     },
   },
 };
@@ -110,6 +112,7 @@ export async function convertOpenApi(contents: string): Promise<ImportPluginResp
 
   const folderIdsByTag = new Map<string, string>();
   const routeLabels = new Map<string, string>();
+  const sourceKeys: Record<string, string> = {};
   for (const tag of toArray(spec.tags)) {
     const tagRecord = toRecord(tag);
     const name = stringAt(tagRecord, "name");
@@ -126,6 +129,7 @@ export async function convertOpenApi(contents: string): Promise<ImportPluginResp
     };
     resources.folders.push(folder);
     folderIdsByTag.set(name, folder.id);
+    sourceKeys[folder.id] = tagSourceKey(name);
   }
 
   for (const [rawPath, rawPathItem] of Object.entries(toRecord(spec.paths))) {
@@ -139,6 +143,7 @@ export async function convertOpenApi(contents: string): Promise<ImportPluginResp
         importState,
         operation,
         resources,
+        sourceKeys,
         workspaceId: workspace.id,
       });
 
@@ -160,6 +165,11 @@ export async function convertOpenApi(contents: string): Promise<ImportPluginResp
         authenticationVariables,
       });
       routeLabels.set(request.id, `${method.toUpperCase()} ${rawPath}`);
+      sourceKeys[request.id] = operationSourceKey(
+        stringAt(operation, "operationId"),
+        method,
+        rawPath,
+      );
       resources.httpRequests.push(request);
     }
   }
@@ -241,6 +251,7 @@ export async function convertOpenApi(contents: string): Promise<ImportPluginResp
       websocketRequests: [],
       workspaces: resources.workspaces,
     }) as PartialImportResources,
+    sourceKeys,
   };
 }
 
@@ -681,12 +692,14 @@ function findOrCreateFolderId({
   importState,
   operation,
   resources,
+  sourceKeys,
   workspaceId,
 }: {
   folderIdsByTag: Map<string, string>;
   importState: ImportState;
   operation: UnknownRecord;
   resources: ImportResources;
+  sourceKeys: Record<string, string>;
   workspaceId: string;
 }): string | null {
   const tag = toArray(operation.tags).find((t): t is string => typeof t === "string");
@@ -705,7 +718,18 @@ function findOrCreateFolderId({
   };
   resources.folders.push(folder);
   folderIdsByTag.set(tag, folder.id);
+  sourceKeys[folder.id] = tagSourceKey(tag);
   return folder.id;
+}
+
+function operationSourceKey(operationId: string | undefined, method: string, path: string): string {
+  return operationId != null && operationId !== ""
+    ? `op:${operationId}`
+    : `route:${method.toUpperCase()} ${path}`;
+}
+
+function tagSourceKey(tag: string): string {
+  return `tag:${tag}`;
 }
 
 /**
